@@ -3,37 +3,51 @@
 int main(void) {
     ABORIA_VARIABLE(density1p,double,"density")
     ABORIA_VARIABLE(density2p,double,"two particle density")
-        ABORIA_VARIABLE(constant2,double,"c2 value")
+    ABORIA_VARIABLE(constant2,double,"c2 value")
+    ABORIA_VARIABLE(g_function,double,"g function")
 
-    typedef Particles<std::tuple<density1p,density2p,constant2>,2> ParticlesType;
-    typedef position_d<2> position;
+    typedef Particles<std::tuple<density1p,density2p,g_function,constant2>,3> ParticlesType;
+    typedef position_d<3> position;
     ParticlesType knots;
 
     const double c = 0.5;
+    const double L = 1.0;
+    const double3 low(0,0,0);
+    const double3 high(L,L,L);
     const int max_iter = 100;
     const int restart = 100;
     double2 periodic(false);
     
     const int nx = 7;
+    const int ntheta = 5;
+    const int nr = 5;
+    const double deltar = 0.1;
+    const double factorr = 1.01;
     constexpr int N = (nx+1)*(nx+1);
-    const double delta = 1.0/nx;
+    const double deltax = std::sqrt(1.0)/nx;
+    const double deltatheta = 2*pi/nx;
     typename ParticlesType::value_type p;
     for (int i=0; i<=nx; ++i) {
-        for (int j=0; j<=nx; ++j) {
-            get<position>(p) = double2(i*delta,j*delta);
-            if ((i==0)||(i==nx)||(j==0)||(j==nx)) {
-                get<boundary>(p) = true;
-            } else {
-                get<boundary>(p) = false;
+        const double x = i*deltax;
+        for (int j=0; j<=ntheta; ++j) {
+            const double theta = j*deltatheta;
+            double r = deltar/factorr;
+            for (int k=0; j<=nr; ++j) {
+                r *= factorr;
+                get<position>(p) = double3(x/std::sqrt(2.0),x/std::sqrt(2.0)+r*std::cos(theta),r*std::sin(theta));
+                if ((p<low).any() || (p>=high).any()) continue;
+                get<constant2>(p) = std::pow(c,2);
+                knots.push_back(p);
             }
-            get<constant2>(p) = std::pow(c,2);
-            knots.push_back(p);
         }
     }
+    std::cout << "added "<<knots.size()<<" knots" << std::endl;
+    knots.init_neighbour_search(low,high,std::pow(c,2),bool3(true,true,true));
 
     Symbol<position> r;
     Symbol<density1p> p;
     Symbol<density2p> P;
+    Symbol<g_function> g;
     Symbol<constant2> c2;
     Label<0,ParticlesType> a(knots);
     Label<1,ParticlesType> b(knots);
@@ -41,33 +55,29 @@ int main(void) {
     auto dx = create_dx(a,b);
     Accumulate<std::plus<double> > sum;
 
-    auto kernel = deep_copy(
-            exp(-pow(norm(dx),2)/c2[b])
+    auto kernel = create_eigen_operator(a,b,
+            exp(-dot(dx,dx)/c2[b])
             );
 
-    auto laplace_kernel = deep_copy(
-            //(2*c2[b] + pow(norm(dx),2)) / pow(pow(norm(dx),2) + c2[b],1.5)
-            4*(pow(norm(dx),2) - c2[b]) * exp(-pow(norm(dx),2)/c2[b])/pow(c2[a],2)
+    auto dkernel_dx1 = create_eigen_operator(a,b,
+            (-2*r[a][0] + 2*r[b][0])*exp(-dot(dx,dx)/c2[b])/c2[b]
+            );
+    auto dkernel_dx2 = create_eigen_operator(a,b,
+            (-2*r[a][1] + 2*r[b][1])*exp(-dot(dx,dx)/c2[b])/c2[b]
             );
 
-    auto G = create_eigen_operator(a,b, 
-                if_else(is_b[a],
-                    kernel,
-                    laplace_kernel
-                )
+    auto ikernel_dx3 = create_eigen_operator(a,b,
+            std::sqrt(pi)*c[b]**exp(-(pow(dx[0],2)+pow(dx[1],2))/c2[b])
             );
+
+
     auto P = create_eigen_operator(a,one,
-                if_else(is_b[a],
                     1.0,
-                    0.0
-                )
             );
     auto Pt = create_eigen_operator(one,b,
-                if_else(is_b[b],
                     1.0,
-                    0.0
-                )
             );
+
     auto Zero = create_eigen_operator(one,one, 0.);
 
     auto W = create_block_eigen_operator<2,2>(G, P,
