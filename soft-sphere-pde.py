@@ -1,5 +1,5 @@
 from __future__ import division
-from sympy import symbols,Eq,init_printing,pprint,solve,simplify,Function,diff,cancel,apart,powsimp,collect,factor,fraction,integrate,Sum,oo,MatrixSymbol,Inverse,FunctionMatrix,Lambda,Transpose,cse,Integral,Derivative
+from sympy import *
 from sympy.functions import exp
 from sympy.core.containers import Tuple
 
@@ -20,6 +20,9 @@ f = Function(r'f')
 w = Function(r'w')
 c = Function(r'c')
 g = Function(r'g')
+g1_i = Function(r'g^1_i')
+g2_i = Function(r'g^2_i')
+g3_i = Function(r'g^3_i')
 
 
 p = Function(r'p')
@@ -53,14 +56,8 @@ P = Function(r'P')
 #
 
 Eq1 = Eq(diff(p(x1,t),t),Derivative(diff(p(x1),x1) + (n-1)*Integral(P(x1,x2)*f(x1,x2),x2), x1))
-#Eq2 = Eq(diff(P(x1,x2),t),diff(diff(P(x1,x2),x1) + f(x1,x2)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate((P(x1,x3)*P(x2,x3)/p(x3))*f(x1,x3),x3), x1) + diff(diff(P(x1,x2),x2) + f(x2,x1)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate((P(x1,x3)*P(x2,x3)/p(x3))*f(x2,x3),x3), x2))
 Eq2 = Eq(diff(P(x1,x2,t),t),Derivative(diff(P(x1,x2),x1) + f(x1,x2)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate(g(x1,x2,x3)*f(x1,x3),x3), x1) + Derivative(diff(P(x1,x2),x2) + f(x2,x1)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate(g(x1,x2,x3)*f(x2,x3),x3), x2))
-
 Eq3 = Eq(g(x1,x2,x3),P(x1,x3)*P(x2,x3)/p(x3))
-#Eq1 = diff_disc(diff_disc(p(x1),x1,K1(x1)) + (n-1)*integrate_disc(F(x1,x2)*P(x1,x2),x2,K2(x1,x2)), x1,K1(x1))
-#
-#Eq2 = diff_disc(diff_disc(P(x1,x2),x1,K2(x1,x2)) + F(x1,x2)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1).dot(p(x2))))*integrate_disc(F(x1,x3)*(P(x1,x3)*Transpose(P(x2,x3))/p(x3)),x3,K3(x1,x2,x3)),x1,K2(x1,x2)) + diff_disc(diff_disc(P(x1,x2),x2,K2(x1,x2)) + F(x2,x1)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*Transpose(p(x2))))*integrate_disc(F(x2,x3)*(P(x1,x3)*P(x2,x3)/p(x3)),x3,K2(x1,x2)), x2,K2(x1,x2))
-
 
 
 
@@ -72,5 +69,143 @@ print '------------------------------------------------'
 pprint(Eq1)
 pprint(Eq2)
 pprint(Eq3)
+
+Eq1 = Eq(diff(p(x1,t),t),diff(diff(p(x1),x1) + (n-1)*Integral(f(x1,x2)*P(x1,x2),x2), x1))
+Eq2 = Eq(diff(P(x1,x2,t),t),diff(diff(P(x1,x2),x1) + f(x1,x2)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate(f(x1,x3)*g(x1,x2,x3),x3), x1) + diff(diff(P(x1,x2),x2) + f(x2,x1)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate(f(x2,x3)*g(x1,x2,x3),x3), x2))
+Eq3 = Eq(g(x1,x2,x3),P(x1,x3)*P(x2,x3)/p(x3))
+
+
+print '------------------------------------------------'
+print '       EQUATIONS EXPANDED'
+print '------------------------------------------------'
+#Eq1 = Eq1.expand()
+#Eq2 = Eq2.expand()
+#Eq3 = Eq3.expand()
+pprint(Eq1)
+pprint(Eq2)
+pprint(Eq3)
+
+k = Function('k')
+w_P = MatrixSymbol('w_P',M,1)
+w_p = MatrixSymbol('w_p',M,1)
+w_g = MatrixSymbol('w_g',M,1)
+
+w_P_0 = MatrixSymbol('w_P_0',M,1)
+w_p_0 = MatrixSymbol('w_p_0',M,1)
+w_g_0 = MatrixSymbol('w_g_0',M,1)
+
+xi = Indexed('x',i)
+yi = Indexed('y',i)
+zi = Indexed('z',i)
+Pi = Indexed('P',i)
+pi = Indexed('p',i)
+
+dt = Symbol('dt')
+
+def as_mat(expr):
+    return FunctionMatrix(M,M,Lambda((i,j),expr))
+
+def mat(name):
+    return MatrixSymbol(name,M,M)
+
+def my_sum():
+    return Sum
+
+K1 = mat('K1')
+K2 = mat('K2')
+K3 = mat('K3')
+K4 = mat('K4')
+K5 = mat('K5')
+K6 = mat('K6')
+Kr = mat('K7')
+K8 = mat('K8')
+
+EqK1 = Eq(K1,FunctionMatrix(M,M,Lambda((i,j),k(x1))))
+EqK2 = Eq(K2,FunctionMatrix(M,M,Lambda((i,j),k(x1,x2))))
+EqK3 = Eq(K3,FunctionMatrix(M,M,Lambda((i,j),k(x1,x2,x3))))
+
+EqK4 = Eq(K4,FunctionMatrix(M,M,Lambda((i,j),diff(diff(k(x1),x1,x1)))))
+EqK5 = Eq(K5,FunctionMatrix(M,M,Lambda((i,j),diff(f(x1,x2)*k(x1,x2),x1))))
+
+EqK7 = Eq(K7,FunctionMatrix(M,M,Lambda((i,j),diff(f(x1,x3)*k(x1,x2,x3),x1))))
+
+
+Eq1 = dt*(n-1)*K5*w_P + dt*K4*w_p - K1*(w_p - w_p_0)
+
+Eq2 = (n-1)*(K2*w_P).multiply_elementwise(K7*w_g)
+
+#Eq1 = dt*(n-1)*Sum((integrate(diff(f(x1,x2),x1)*k(x1,x2),x2) + integrate(f(x1,x2)*diff(k(x1,x2),x1),x2))*Pi,(i,0,M)) + Sum(diff(diff(k(x1),x1),x1)*pi,(i,0,M))
+
+
+
+#replacements = []
+#
+#for a in [f(x1,x3),f(x2,x3),diff(f(x1,x3),x1),diff(f(x2,x3),x2)]:
+#    replacements.append((Integral(a*g(x1,x2,x3),x3),FunctionMatrix(M,M,Lambda((i,j), integrate(a*k(x1,x2,x3),x3)))*w_g))
+#    replacements.append((Integral(a*diff(g(x1,x2,x3),x1),x3),FunctionMatrix(M,M,Lambda((i,j), integrate(a*diff(k(x1,x2,x3),x1),x3)))*w_g))
+#    replacements.append((Integral(a*diff(g(x1,x2,x3),x2),x3),FunctionMatrix(M,M,Lambda((i,j), integrate(a*diff(k(x1,x2,x3),x2),x3)))*w_g))
+#    replacements.append((Integral(g(x1,x2,x3),x3)*a,FunctionMatrix(M,M,Lambda((i,j), integrate(a*k(x1,x2,x3),x3)))*w_g))
+#
+#
+#for replace in replacements:
+#    Eq1 = Eq1.xreplace({replace[0]:replace[1]})
+#    Eq2 = Eq2.xreplace({replace[0]:replace[1]})
+#    Eq3 = Eq3.xreplace({replace[0]:replace[1]})
+#    #Eq1 = Eq1.xreplace({replace[0]:replace[1]})
+#    #Eq2 = Eq2.xreplace(replace[0],replace[1])
+#    #Eq3 = Eq3.xreplace(replace[0],replace[1])
+#
+#replacements = []
+#
+#for a in [diff(f(x1,x2),x2),diff(f(x1,x2),x1),diff(f(x2,x1),x2),diff(f(x2,x1),x1)]:
+#    replacements.append((a*P(x1,x2),FunctionMatrix(M,M,Lambda((i,j), a*k(x1,x2)))*w_P))
+#
+#for a in [f(x1,x2),f(x2,x1)]:
+#    replacements.append((a*diff(P(x1,x2),x1),FunctionMatrix(M,M,Lambda((i,j), diff(k(x1,x2),x1)))*w_P))
+#    replacements.append((a*diff(P(x1,x2),x2),FunctionMatrix(M,M,Lambda((i,j), diff(k(x1,x2),x2)))*w_P))
+#
+#for replace in replacements:
+#    Eq1 = Eq1.replace(replace[0],replace[1])
+#    Eq2 = Eq2.replace(replace[0],replace[1])
+#    Eq3 = Eq3.replace(replace[0],replace[1])
+#
+#
+#for a in [x1,x2,x3]:
+#    replacements.append((diff(p(a),a),FunctionMatrix(M,M,Lambda((i,j), diff(k(a),a)))*w_p))
+#for a in [x1,x2]:
+#    replacements.append((diff(P(x1,x2),a),FunctionMatrix(M,M,Lambda((i,j), diff(k(x1,x2),a)))*w_P))
+#
+#for a in [x1,x2,x3]:
+#    replacements.append((p(a),FunctionMatrix(M,M,Lambda((i,j), k(a)))*w_p))
+#
+#replacements.append((P(x1,x2),FunctionMatrix(M,M,Lambda((i,j), k(x1,x2)))*w_P))
+
+
+
+print '------------------------------------------------'
+print '       EQUATIONS DISCRETISED'
+print '------------------------------------------------'
+
+pprint(cse(Eq1))
+#pprint(Eq2)
+#pprint(Eq3)
+
+#Eq1 = Eq(diff(p(x1,t),t),diff(diff(p(x1),x1) + (n-1)*g1_i(x1), x1))
+#Eq2 = Eq(diff(P(x1,x2,t),t),diff(diff(P(x1,x2),x1) + f(x1,x2)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*g2_i(x1,x2), x1) + diff(diff(P(x1,x2),x2) + f(x2,x1)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*g3_i(x1,x2), x2))
+#
+#Eq3 = Eq(g(x1,x2,x3),P(x1,x3)*P(x2,x3)/p(x3))
+#Eq4 = Eq(g1_i(x1),Integral(P(x1,x2)*f(x1,x2),x2))
+#Eq5 = Eq(g2_i(x1,x2),integrate(g(x1,x2,x3)*f(x1,x3),x3))
+#Eq6 = Eq(g3_i(x1,x2),integrate(g(x1,x2,x3)*f(x2,x3),x3))
+#
+#print '------------------------------------------------'
+#print '       EQUATIONS'
+#print '------------------------------------------------'
+#pprint(Eq1)
+#pprint(Eq2)
+#pprint(Eq3)
+#pprint(Eq4)
+#pprint(Eq5)
+#pprint(Eq6)
 
 

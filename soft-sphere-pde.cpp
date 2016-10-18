@@ -55,6 +55,20 @@ int main(void) {
     auto dx = create_dx(a,b);
     Accumulate<std::plus<double> > sum;
 
+    auto kernel_3d = create_eigen_operator(a,b,
+            exp(-dot(dx,dx)/c2[b])
+            );
+
+    auto kernel_2d_1_3
+    auto kernel_2d_2_3
+    auto kernel_2d_1_2
+
+    auto f_1_2
+    auto f_1_3
+    auto f_2_1
+    auto f_2_3
+
+
     auto kernel = create_eigen_operator(a,b,
             exp(-dot(dx,dx)/c2[b])
             );
@@ -70,6 +84,16 @@ int main(void) {
             std::sqrt(pi)*c[b]**exp(-(pow(dx[0],2)+pow(dx[1],2))/c2[b])
             );
 
+    auto dkernel_dx1dx1 = create_eigen_operator(a,b,
+            (4*pow(r[a][0],2) - 2*c2[b])*exp(-dot(dx,dx)/c2[b])/pow(c2[b],2)
+            );
+
+    auto dkernel_dx2dx2 = create_eigen_operator(a,b,
+            (4*pow(r[a][1],2) - 2*c2[b])*exp(-dot(dx,dx)/c2[b])/pow(c2[b],2)
+            );
+
+
+
 
     auto P = create_eigen_operator(a,one,
                     1.0,
@@ -83,63 +107,68 @@ int main(void) {
     auto W = create_block_eigen_operator<2,2>(G, P,
                                               Pt,Zero);
 
+    Eigen::Map<Eigen::Matrix<double,n,1> > s_vect(get<scalar>(particles).data());
 
-    Eigen::VectorXd phi(knots.size()+1), gamma;
-    for (int i=0; i<knots.size(); ++i) {
-        const double x = get<position>(knots[i])[0];
-        const double y = get<position>(knots[i])[1];
-        if (get<boundary>(knots[i])) {
-            phi[i] = funct(x,y);
-        } else {
-            phi[i] = laplace_funct(x,y);
-        }
+    template<typename T1, typename T2>
+    f(T1 arg1, T2 arg2) {
+        return ...
     }
-    phi[knots.size()] = 0;
 
-    std::cout << std::endl;
-   
-
-    Eigen::GMRES<decltype(W), Eigen::DiagonalPreconditioner<double>> gmres;
-    gmres.set_restart(restart);
-    gmres.setMaxIterations(max_iter);
-    gmres.compute(W);
-    gamma = gmres.solve(phi);
-    std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
-
-
-    phi = W*gamma;
-    for (int i=0; i<knots.size(); ++i) {
-        const double x = get<position>(knots[i])[0];
-        const double y = get<position>(knots[i])[1];
-        if (get<boundary>(knots[i])) {
-            TS_ASSERT_DELTA(phi[i],funct(x,y),2e-3); 
-        } else {
-            TS_ASSERT_DELTA(phi[i],laplace_funct(x,y),2e-3); 
-        }
+    template<typename K, typename F>
+    solve(K kernel, F f) {
+        Eigen::Map<Eigen::Matrix<double,n,1> > source(get<temporary1>(knots).data());
+        Eigen::Map<Eigen::Matrix<double,n,1> > result(get<temporary2>(knots).data());
+        tmp1[a] = f;
+        Eigen::GMRES<decltype(W), Eigen::DiagonalPreconditioner<double>> gmres;
+        gmres.set_restart(restart);
+        gmres.setMaxIterations(max_iter);
+        gmres.compute(create_eigen_operator(a,b,kernel));
+        result = gmres.solve(source);
+        std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
+        return tmp2[a];
     }
-    TS_ASSERT_DELTA(phi[knots.size()],0,2e-3); 
+
+    for (int i=0; i < timesteps; i++) {
+        p[a] = kernel_1*w_p[a];
+        p_2[a] = kernel_2*w_p[a];
+        p_2_dx2[a] = kernel_2_dx2*w_p[a];
+        p_1_2[a] = p[a]*p_2[a];
+        p_dx1[a] = kernel_dx1*w_p[a];
+        p_d2x1[a] = kernel_d2x1*w_p[a];
+        P[a] = kernel_1_2*w_P[a];
+        P_dx1[a] = kernel_dx1*w_P[a];
+        P_dx2[a] = kernel_dx2*w_P[a];
+        P_d2x1[a] = kernel_d2x1*w_P[a];
+        P_d2x2[a] = kernel_d2x2*w_P[a];
+        g[a] = (kernel_1_3*w_P[a])*(kernel_2_3*w_P[a])/(kernel_3*w_p[a]);
+
+        w_g1[a] = solve(kernel_1_2,f(r[a][0],r[a][1])*P[a]);
+        w_g2[a] = solve(kernel_1_2_3,f(r[a][0],r[a][2])*g[a]);
+        w_g3[a] = solve(kernel_1_2_3,f(r[a][1],r[a][2])*g[a]);
+
+        g1_ix2[a] = ikernel_dx2*w_g1[a];
+        g2_ix3[a] = ikernel_dx3*w_g2[a];
+        g3_ix3[a] = ikernel_dx3*w_g3[a];
+
+        g1_ix2_dx1[a] = kernel_ix2_dx1*w_g1[a];
+        g2_ix3_dx1[a] = kernel_ix3_dx1*w_g2[a];
+        g3_ix3_dx2[a] = kernel_ix3_dx2*w_g3[a];
 
 
-    // This could be more intuitive....
-    Eigen::Map<Eigen::Matrix<double,N,1>> alpha_wrap(get<alpha>(knots).data());
-    alpha_wrap = gamma.segment<N>(0);
+        kernel*w_p - kernel*w_p_0 = dt*((n-1)*kernel_f_ix2_dx1*w_P[a] + kernel_d2x1*w_p[a])
+        dpdt[a] = (n-1)*g1_ix2_dx1[a] + p_d2x1[a];
+        p_n+1 - dt*(n-1)*g1_ix2_dx1[a] + p_d2x1[a] = p_n
+        kernel*w_p_n+1 - dt*(n-1)*g1_ix2_dx1[a] + p_d2x1[a] = p_n
+        p_n+1(I - dt*(n-1)*g1_ix2_dx1[a] + p_d2x1[a] = p_n
+        dPdt[a] = -(n-2)*P[a]*g2_ix3[a]*p_dx1[a]/(p[a]*p_1_2[a]) - 
+                    (n-2)*P[a]*g3_ix3[a]*p_2_dx2[a]/(p_1_2[a]*p_2[a]) + 
+                    (n-2)*P[a]*g2_ix3_dx1[a]/(p_1_2[a]) + 
+                    (n-2)*P[a]*g3_ix3_dx2[a]/(p_1_2[a]) + 
+                    (n-2)*g2_ix3[a]*P_dx1[a]/(p_1_2[a]) + 
+                    (n-2)*g3_ix3[a]*P_dx2[a]/(p_1_2[a]) +
+                    P[a]*f_dx1[a] + P[a]*f_dx2[a] + f[a]*P_dx1[a] +
+                    f[a]*P_dx2[a] + P_d2x1[a] + P_d2x2[a];
+        p[a] += dt*dpdt[a];
 
-    const double beta = gamma(knots.size());
-
-    interp[a] = sum(b,true,al[b]*kernel) + beta;
-
-    double rms_error = 0;
-    double scale = 0;
-    for (int i=0; i<knots.size(); ++i) {
-        const double x = get<position>(knots[i])[0];
-        const double y = get<position>(knots[i])[1];
-        const double truth = funct(x,y);
-        const double eval_value = get<interpolated>(knots[i]);
-        rms_error += std::pow(eval_value-truth,2);
-        scale += std::pow(truth,2);
-        TS_ASSERT_DELTA(eval_value,truth,1e-2); 
-    }
-    std::cout << "rms_error for global support, at centers  = "<<std::sqrt(rms_error/scale)<<std::endl;
-    TS_ASSERT_LESS_THAN(std::sqrt(rms_error/scale),1e-3);
 
 }

@@ -28,6 +28,10 @@ for var1 in [xa,ya,za]:
 for var1 in [xa,ya,za]:
     pprint(Eq(integrate(k,var1),simplify(integrate(kernel,(var1,-oo,oo)))))
 
+for var1 in [xa,ya,za]:
+    pprint(Eq(diff(diff(k,var1),var1),simplify(diff(diff(kernel,var1),var1))))
+
+
 
 
 #for var1 in [xa,ya,za]:
