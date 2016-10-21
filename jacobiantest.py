@@ -2,7 +2,7 @@ from __future__ import division
 from sympy import *
 
 
-n = 3
+n = 2
 i = Symbol('i',integer=True)
 j = Symbol('j',integer=True)
 ks = symbols('k:'+str(n)+'(:'+str(n)+')')
@@ -12,6 +12,7 @@ ss = symbols('s:'+str(n)+'(:'+str(n)+')')
 xs = symbols('x:'+str(n))
 ys = symbols('y:'+str(n))
 zs = symbols('z:'+str(n))
+ws = symbols('w:'+str(n))
 
 K = Matrix(n,n,ks)
 L = Matrix(n,n,ls)
@@ -21,25 +22,43 @@ S = Matrix(n,n,ss)
 x = Matrix(n,1,xs)
 y = Matrix(n,1,ys)
 z = Matrix(n,1,zs)
+w = Matrix(n,1,ws)
 
 inv = lambda i: 1/i
 inv2 = lambda i: 1/(i**2)
 
+print '-------------------------------------'
+
 term = (K*x).multiply_elementwise(L*y).multiply_elementwise((M*z).applyfunc(inv)).multiply_elementwise((S*z).applyfunc(inv))
 
 jacobian = term.jacobian(z)
-#jacobian = Matrix(n,n,lambda i,j: diff(term[i],zs[j]))
+jacobian_action = term.jacobian(z)*w
 jacobian_eq_sub = -(K*x).multiply_elementwise(L*y).multiply_elementwise((M*z).applyfunc(inv2)).multiply_elementwise((S*z).applyfunc(inv2))
-jacobian_eq_sub_Sz = jacobian_eq_sub.multiply_elementwise(S*z)
-jacobian_eq_sub_Mz = jacobian_eq_sub.multiply_elementwise(M*z)
-jacobian_eq_sub_Sz_full = jacobian_eq_sub_Sz
-jacobian_eq_sub_Mz_full = jacobian_eq_sub_Mz
-for i in range(n-1):
-    jacobian_eq_sub_Sz_full = jacobian_eq_sub_Sz_full.row_join(jacobian_eq_sub_Sz)
-    jacobian_eq_sub_Mz_full = jacobian_eq_sub_Mz_full.row_join(jacobian_eq_sub_Mz)
+jacobian_action_eq = jacobian_eq_sub.multiply_elementwise(
+        (S*z).multiply_elementwise(M*w) + (M*z).multiply_elementwise(S*w))
 
-jacobian_eq = M.multiply_elementwise(jacobian_eq_sub_Sz_full) + S.multiply_elementwise(jacobian_eq_sub_Mz_full)
-#pprint(simplify(jacobian))
-#pprint(simplify(jacobian_eq))
-pprint(jacobian==jacobian_eq)
+pprint(simplify(jacobian_action-jacobian_action_eq))
+
+
+print '-------------------------------------'
+print '     Kz.Lz.(Mx)-1'
+print '-------------------------------------'
+
+term = (K*z).multiply_elementwise(L*z).multiply_elementwise((M*x).applyfunc(inv))
+
+jacobian = term.jacobian(z)
+jacobian_action = term.jacobian(z)*w
+jacobian_action_eq = ((K*w).multiply_elementwise(L*z) + (L*w).multiply_elementwise(K*z)).multiply_elementwise((M*x).applyfunc(inv))
+
+pprint(simplify(jacobian_action-jacobian_action_eq))
+
+
+jacobian = term.jacobian(x)
+jacobian_action = term.jacobian(x)*w
+
+jacobian_action_eq = -((M*w).multiply_elementwise(K*z).multiply_elementwise(L*z)).multiply_elementwise((M*x).applyfunc(inv2))
+
+pprint(jacobian_action)
+pprint(simplify(jacobian_action))
+pprint(simplify(jacobian_action-jacobian_action_eq))
 

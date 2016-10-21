@@ -69,6 +69,15 @@ print '------------------------------------------------'
 pprint(Eq1)
 pprint(Eq2)
 pprint(Eq3)
+with open('equations.tex','w') as fil:
+    fil.write('------------------------------------------------\n')
+    fil.write('   EQUATIONS \n')
+    fil.write('------------------------------------------------\n')
+    fil.write('\n')
+    fil.write(latex(Eq1)+'\n')
+    fil.write(latex(Eq2)+'\n')
+    fil.write(latex(Eq3)+'\n')
+    fil.write('\n')
 
 Eq1 = Eq(diff(p(x1,t),t),diff(diff(p(x1),x1) + (n-1)*Integral(f(x1,x2)*P(x1,x2),x2), x1))
 Eq2 = Eq(diff(P(x1,x2,t),t),diff(diff(P(x1,x2),x1) + f(x1,x2)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate(f(x1,x3)*g(x1,x2,x3),x3), x1) + diff(diff(P(x1,x2),x2) + f(x2,x1)*P(x1,x2) +  (n-2)*(P(x1,x2)/(p(x1)*p(x2)))*integrate(f(x2,x3)*g(x1,x2,x3),x3), x2))
@@ -84,6 +93,16 @@ print '------------------------------------------------'
 pprint(Eq1)
 pprint(Eq2)
 pprint(Eq3)
+with open('equations.tex','a') as fil:
+    fil.write('------------------------------------------------\n')
+    fil.write('   EQUATIONS EXPANDED \n')
+    fil.write('------------------------------------------------\n')
+    fil.write('\n')
+    fil.write(latex(Eq1)+'\n')
+    fil.write(latex(Eq2)+'\n')
+    fil.write(latex(Eq3)+'\n')
+
+
 
 k = Function('k')
 w_P = MatrixSymbol('w_P',M,1)
@@ -117,7 +136,7 @@ K3 = mat('K3')
 K4 = mat('K4')
 K5 = mat('K5')
 K6 = mat('K6')
-Kr = mat('K7')
+K7 = mat('K7')
 K8 = mat('K8')
 
 EqK1 = Eq(K1,FunctionMatrix(M,M,Lambda((i,j),k(x1))))
@@ -132,7 +151,7 @@ EqK7 = Eq(K7,FunctionMatrix(M,M,Lambda((i,j),diff(f(x1,x3)*k(x1,x2,x3),x1))))
 
 Eq1 = dt*(n-1)*K5*w_P + dt*K4*w_p - K1*(w_p - w_p_0)
 
-Eq2 = (n-1)*(K2*w_P).multiply_elementwise(K7*w_g)
+#Eq2 = (n-1)*(K2*w_P).multiply_elementwise(K7*w_g)
 
 #Eq1 = dt*(n-1)*Sum((integrate(diff(f(x1,x2),x1)*k(x1,x2),x2) + integrate(f(x1,x2)*diff(k(x1,x2),x1),x2))*Pi,(i,0,M)) + Sum(diff(diff(k(x1),x1),x1)*pi,(i,0,M))
 
@@ -186,7 +205,7 @@ print '------------------------------------------------'
 print '       EQUATIONS DISCRETISED'
 print '------------------------------------------------'
 
-pprint(cse(Eq1))
+#pprint(cse(Eq1))
 #pprint(Eq2)
 #pprint(Eq3)
 
