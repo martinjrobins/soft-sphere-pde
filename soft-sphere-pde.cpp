@@ -36,7 +36,7 @@ int main(void) {
                 r *= factorr;
                 get<position>(p) = double3(x/std::sqrt(2.0),x/std::sqrt(2.0)+r*std::cos(theta),r*std::sin(theta));
                 if ((p<low).any() || (p>=high).any()) continue;
-                get<constant2>(p) = std::pow(c,2);
+                get<constant2>(p) = 1.0/std::pow(c,2);
                 knots.push_back(p);
             }
         }
@@ -68,10 +68,30 @@ int main(void) {
     auto f_2_1
     auto f_2_3
 
-
-    auto kernel = create_eigen_operator(a,b,
-            exp(-dot(dx,dx)/c2[b])
+    #define MATRIX(name,expr) \\
+    auto name = create_eigen_operator(a,b \\
+            expr \\
             );
+
+    const double ei = 1.0/0.05;
+    const double ei2 = std::pow(ei,2);
+    auto f = deep_copy(if_else(r[a][0]>r[a][1],-exp((r[a][1]-r[a][0])*ei),exp((r[a][0]-r[a][1])*ei))*ei);
+    auto dfdx = deep_copy(if_else(r[a][0]>r[a][1],exp((r[a][1]-r[a][0])*ei),exp((r[a][0]-r[a][1])*ei))*ei2);
+
+    auto k1 = deep_copy(exp(-pow(dx[0],2)*c2[b]));
+    auto k2 = deep_copy(exp(-(pow(dx[0],2)+pow(dx[1],2))*c2[b]));
+    auto k3 = deep_copy(exp(-(pow(dx[0],2)+pow(dx[1],2)+pow(dx[2],2))*c2[b]));
+    auto dk2dx = deep_copy(-2*dx[0]*exp(-(pow(dx[0],2)+pow(dx[1],2))*c2[b])*c2[b]);
+    auto dk2dy = deep_copy(-2*dx[1]*exp(-(pow(dx[0],2)+pow(dx[1],2))*c2[b])*c2[b]);
+
+    MATRIX(K1, exp(-dot(dx,dx)*c2[b]) )
+    MATRIX(K2, exp(-dot(dx,dx)*c2[b]) )
+
+    auto K1 = create_eigen_operator(a,b,
+            exp(-dot(dx,dx)*c2[b])
+            );
+
+
 
     auto dkernel_dx1 = create_eigen_operator(a,b,
             (-2*r[a][0] + 2*r[b][0])*exp(-dot(dx,dx)/c2[b])/c2[b]
