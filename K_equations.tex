@@ -1,0 +1,86 @@
+equations for matrix calculations
+------------------------------------------------
+   K1
+------------------------------------------------
+
+e \left(\int_{-\infty}^{\infty} - 2 e^{- c_{j} y_{i}^{2} + 2 c_{j} y_{i} y_{j} - e \left|{x_{i} - y_{i}}\right|} \delta\left(x_{i} - y_{i}\right)\, dy_{i} + \int_{-\infty}^{\infty} e e^{- c_{j} y_{i}^{2} + 2 c_{j} y_{i} y_{j} - e \left|{x_{i} - y_{i}}\right|} \operatorname{sign}^{2}{\left (x_{i} - y_{i} \right )}\, dy_{i} + \int_{-\infty}^{\infty} 2 c_{j} x_{i} e^{- c_{j} y_{i}^{2} + 2 c_{j} y_{i} y_{j} - e \left|{x_{i} - y_{i}}\right|} \operatorname{sign}{\left (x_{i} - y_{i} \right )}\, dy_{i} + \int_{-\infty}^{\infty} - 2 c_{j} x_{j} e^{- c_{j} y_{i}^{2} + 2 c_{j} y_{i} y_{j} - e \left|{x_{i} - y_{i}}\right|} \operatorname{sign}{\left (x_{i} - y_{i} \right )}\, dy_{i}\right) e^{c_{j} \left(- x_{i}^{2} + 2 x_{i} x_{j} - x_{j}^{2} - y_{j}^{2}\right)}
+------------------------------------------------
+   K2
+------------------------------------------------
+
+2 c_{j} \left(2 c_{j} \left(x_{i} - x_{j}\right)^{2} - 1\right) e^{- c_{j} \left(x_{i} - x_{j}\right)^{2}}
+------------------------------------------------
+   K3
+------------------------------------------------
+
+e^{- c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2}\right)}
+------------------------------------------------
+   K4
+------------------------------------------------
+
+e^{- c_{j} \left(x_{i} - x_{j}\right)^{2}}
+------------------------------------------------
+   K5
+------------------------------------------------
+
+e^{- c_{j} \left(x_{j} - y_{i}\right)^{2}}
+------------------------------------------------
+   K6
+------------------------------------------------
+
+e \left(\int_{-\infty}^{\infty} - 2 e^{- c_{j} z_{i}^{2} + 2 c_{j} z_{i} z_{j} - e \left|{x_{i} - z_{i}}\right|} \delta\left(x_{i} - z_{i}\right)\, dz_{i} + \int_{-\infty}^{\infty} e e^{- c_{j} z_{i}^{2} + 2 c_{j} z_{i} z_{j} - e \left|{x_{i} - z_{i}}\right|} \operatorname{sign}^{2}{\left (x_{i} - z_{i} \right )}\, dz_{i} + \int_{-\infty}^{\infty} 2 c_{j} x_{i} e^{- c_{j} z_{i}^{2} + 2 c_{j} z_{i} z_{j} - e \left|{x_{i} - z_{i}}\right|} \operatorname{sign}{\left (x_{i} - z_{i} \right )}\, dz_{i} + \int_{-\infty}^{\infty} - 2 c_{j} x_{j} e^{- c_{j} z_{i}^{2} + 2 c_{j} z_{i} z_{j} - e \left|{x_{i} - z_{i}}\right|} \operatorname{sign}{\left (x_{i} - z_{i} \right )}\, dz_{i}\right) e^{c_{j} \left(- x_{i}^{2} + 2 x_{i} x_{j} - x_{j}^{2} - y_{i}^{2} + 2 y_{i} y_{j} - y_{j}^{2} - z_{j}^{2}\right)}
+------------------------------------------------
+   K7
+------------------------------------------------
+
+\sqrt{\pi} \sqrt{c_{j}} e \left(\left(- x_{i} + x_{j}\right) \left(\operatorname{erf}{\left (\frac{1}{2 \sqrt{c_{j}}} \left(- 2 c_{j} y_{i} + 2 c_{j} z_{j} + e\right) \right )} - 1\right) e^{\frac{1}{4 c_{j}} \left(- 2 c_{j} y_{i} + 2 c_{j} z_{j} + e\right)^{2}} + \left(x_{i} - x_{j}\right) \left(\operatorname{erf}{\left (\frac{1}{2 \sqrt{c_{j}}} \left(2 c_{j} y_{i} - 2 c_{j} z_{j} + e\right) \right )} - 1\right) e^{\frac{1}{4 c_{j}} \left(2 c_{j} y_{i} - 2 c_{j} z_{j} + e\right)^{2}}\right) e^{c_{j} \left(- x_{i}^{2} + 2 x_{i} x_{j} - x_{j}^{2} - 2 y_{i}^{2} + 2 y_{i} y_{j} + 2 y_{i} z_{j} - y_{j}^{2} - z_{j}^{2}\right)}
+------------------------------------------------
+   K8
+------------------------------------------------
+
+2 c_{j} \left(x_{j} - y_{i}\right) e^{- c_{j} \left(x_{j} - y_{i}\right)^{2}}
+------------------------------------------------
+   K9
+------------------------------------------------
+
+\frac{\sqrt{\pi} e}{2 \sqrt{c_{j}}} \left(\left(\operatorname{erf}{\left (\frac{1}{2 \sqrt{c_{j}}} \left(- 2 c_{j} y_{i} + 2 c_{j} z_{j} + e\right) \right )} - 1\right) e^{\frac{1}{4 c_{j}} \left(- 2 c_{j} y_{i} + 2 c_{j} z_{j} + e\right)^{2}} - \left(\operatorname{erf}{\left (\frac{1}{2 \sqrt{c_{j}}} \left(2 c_{j} y_{i} - 2 c_{j} z_{j} + e\right) \right )} - 1\right) e^{\frac{1}{4 c_{j}} \left(2 c_{j} y_{i} - 2 c_{j} z_{j} + e\right)^{2}}\right) e^{c_{j} \left(- x_{i}^{2} + 2 x_{i} x_{j} - x_{j}^{2} - 2 y_{i}^{2} + 2 y_{i} y_{j} + 2 y_{i} z_{j} - y_{j}^{2} - z_{j}^{2}\right)}
+------------------------------------------------
+   K10
+------------------------------------------------
+
+\frac{\sqrt{\pi} e}{2 \sqrt{c_{j}}} \left(\left(\operatorname{erf}{\left (\frac{1}{2 \sqrt{c_{j}}} \left(- 2 c_{j} x_{i} + 2 c_{j} z_{j} + e\right) \right )} - 1\right) e^{\frac{1}{4 c_{j}} \left(- 2 c_{j} x_{i} + 2 c_{j} z_{j} + e\right)^{2}} - \left(\operatorname{erf}{\left (\frac{1}{2 \sqrt{c_{j}}} \left(2 c_{j} x_{i} - 2 c_{j} z_{j} + e\right) \right )} - 1\right) e^{\frac{1}{4 c_{j}} \left(2 c_{j} x_{i} - 2 c_{j} z_{j} + e\right)^{2}}\right) e^{c_{j} \left(- 2 x_{i}^{2} + 2 x_{i} x_{j} + 2 x_{i} z_{j} - x_{j}^{2} - y_{i}^{2} + 2 y_{i} y_{j} - y_{j}^{2} - z_{j}^{2}\right)}
+------------------------------------------------
+   K11
+------------------------------------------------
+
+- 2 c_{j} \left(x_{i} - x_{j}\right) e^{- c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2}\right)}
+------------------------------------------------
+   K12
+------------------------------------------------
+
+- 2 c_{j} \left(y_{i} - y_{j}\right) e^{- c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2}\right)}
+------------------------------------------------
+   K13
+------------------------------------------------
+
+2 \left(2 c_{j} \left(c_{j} \left(x_{i} - x_{j}\right)^{2} + c_{j} \left(y_{i} - y_{j}\right)^{2} - 1\right) e^{c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2}\right) + e \left|{x_{i} - y_{i}}\right|} + e \left(- \delta\left(- x_{i} + y_{i}\right) + \delta\left(x_{i} - y_{i}\right)\right) e^{c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2}\right)}\right) e^{- 2 c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2}\right) - e \left|{x_{i} - y_{i}}\right|}
+------------------------------------------------
+   K14
+------------------------------------------------
+
+e^{- c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{i} - y_{j}\right)^{2} + \left(z_{i} - z_{j}\right)^{2}\right)}
+------------------------------------------------
+   K15
+------------------------------------------------
+
+e^{- c_{j} \left(\left(x_{i} - x_{j}\right)^{2} + \left(y_{j} - z_{i}\right)^{2}\right)}
+------------------------------------------------
+   K16
+------------------------------------------------
+
+e^{- c_{j} \left(\left(x_{j} - y_{i}\right)^{2} + \left(y_{j} - z_{i}\right)^{2}\right)}
+------------------------------------------------
+   K17
+------------------------------------------------
+
+e^{- c_{j} \left(x_{j} - z_{i}\right)^{2}}

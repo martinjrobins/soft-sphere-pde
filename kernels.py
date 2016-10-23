@@ -23,60 +23,108 @@ k = exp(-dx.dot(dx)*cj)
 #kernel = 1/sqrt(dx.dot(dx) + cb**2)
 f = diff(exp(-abs(xi-yi)*e),xi)
 
+def printeq(name,eq):
+    eq = simplify(eq)
+    pprint(eq)
+    with open('K_equations.tex','a') as fil:
+        fil.write('------------------------------------------------\n')
+        fil.write('   %s\n'%name)
+        fil.write('------------------------------------------------\n')
+        fil.write('\n')
+        fil.write(latex(eq)+'\n')
+        fil.write('\n')
+
+
+
+with open('K_equations.tex','w') as fil:
+    fil.write('equations for matrix calculations\n')
+
 print '----------------------------------------------'
 print '               K1'
 print '----------------------------------------------'
-#pprint(integrate(diff(f*(k.subs(zi-zj,0)),xi),yi))
+printeq('K1',integrate(diff(f*(k.subs(zi-zj,0)),xi),(yi,-oo,oo)))
 
 print '----------------------------------------------'
 print '               K2'
 print '----------------------------------------------'
-pprint(simplify(diff(diff((k.subs(zi-zj,0).subs(yi-yj,0)),xi),xi)))
+printeq('K2',diff(diff((k.subs(zi-zj,0).subs(yi-yj,0)),xi),xi))
 
 print '----------------------------------------------'
 print '               K3'
 print '----------------------------------------------'
-pprint(simplify(k.subs(zi-zj,0)))
+printeq('K3',simplify(k.subs(zi-zj,0)))
 
 print '----------------------------------------------'
 print '               K4'
 print '----------------------------------------------'
-pprint(simplify(k.subs(zi-zj,0).subs(yi-yj,0)))
+printeq('K4',simplify(k.subs(zi-zj,0).subs(yi-yj,0)))
 
 print '----------------------------------------------'
 print '               K5'
 print '----------------------------------------------'
-pprint(simplify(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj)))
+printeq('K5',simplify(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj)))
 
 print '----------------------------------------------'
 print '               K6'
 print '----------------------------------------------'
-#pprint(integrate(diff((f.subs(yi,zi))*k,xi),zi))
+printeq('K6',integrate(diff((f.subs(yi,zi))*k,xi),(zi,-oo,oo)))
 
 print '----------------------------------------------'
 print '               K7'
 print '----------------------------------------------'
-#pprint(integrate(diff((f.subs(yi,zi).subs(xi,yi))*k,xi),zi))
+printeq('K7',integrate(diff((f.subs(yi,zi).subs(xi,yi))*k,xi),(zi,-oo,oo)))
 
 print '----------------------------------------------'
 print '               K8'
 print '----------------------------------------------'
-pprint(simplify(diff(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj),yi)))
+printeq('K8',simplify(diff(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj),yi)))
 
 print '----------------------------------------------'
 print '               K9'
 print '----------------------------------------------'
-#pprint(integrate((f.subs(yi,zi).subs(xi,yi))*k,zi))
+printeq('K9',integrate((f.subs(yi,zi).subs(xi,yi))*k,(zi,-oo,oo)))
 
 print '----------------------------------------------'
 print '               K10'
 print '----------------------------------------------'
-pprint(integrate((f.subs(yi,zi))*k,zi))
+printeq('K10',integrate((f.subs(yi,zi))*k,(zi,-oo,oo)))
 
 print '----------------------------------------------'
 print '               K11'
 print '----------------------------------------------'
-#
+printeq('K11',diff(k.subs(zi-zj,0),xi))
+
+print '----------------------------------------------'
+print '               K12'
+print '----------------------------------------------'
+printeq('K12',diff(k.subs(zi-zj,0),yi))
+
+print '----------------------------------------------'
+print '               K13'
+print '----------------------------------------------'
+printeq('K13',diff(f*k.subs(zi-zj,0),yi) + diff((f.subs(xi,zi).subs(yi,xi).subs(zi,yi))*k.subs(zi-zj,0),yi) +  diff(diff(k.subs(zi-zj,0),xi),xi) + diff(diff(k.subs(zi-zj,0),yi),yi))
+
+print '----------------------------------------------'
+print '               K14'
+print '----------------------------------------------'
+printeq('K14',k)
+
+print '----------------------------------------------'
+print '               K15'
+print '----------------------------------------------'
+printeq('K15',k.subs(zi-zj,0).subs(yi,zi))
+
+print '----------------------------------------------'
+print '               K16'
+print '----------------------------------------------'
+printeq('K16',k.subs(zi-zj,0).subs(yi,zi).subs(xi,yi))
+
+print '----------------------------------------------'
+print '               K17'
+print '----------------------------------------------'
+printeq('K17',k.subs(zi-zj,0).subs(yi-yj,0).subs(xi,zi))
+
+
 
 #pprint(Eq(k,kernel))
 #for var1 in [xa,ya,za]:
