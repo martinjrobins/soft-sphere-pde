@@ -13,15 +13,18 @@ yj = symbols(r'y_j',real=True)
 zj = symbols(r'z_j',real=True)
 
 cj = symbols(r'c_j',positive=true)
-e = symbols(r'e',positive=true)
+e = symbols(r'\epsilon',positive=true)
 
 ri = Matrix([xi,yi,zi])
 rj = Matrix([xj,yj,zj])
 dx = ri-rj
 
 k = exp(-dx.dot(dx)*cj)
-#kernel = 1/sqrt(dx.dot(dx) + cb**2)
+#k = 1/sqrt(dx.dot(dx) + cj)
+#k = sqrt(dx.dot(dx) + cj)
 f = diff(exp(-abs(xi-yi)*e),xi)
+fxigtyi = diff(exp(-(xi-yi)*e),xi)
+fxiltyi = diff(exp((xi-yi)*e),xi)
 
 def printeq(name,eq):
     eq = simplify(eq)
@@ -38,11 +41,23 @@ def printeq(name,eq):
 
 with open('K_equations.tex','w') as fil:
     fil.write('equations for matrix calculations\n')
+    fil.write('------------------------------------------------\n')
+    fil.write('   k\n')
+    fil.write('------------------------------------------------\n')
+    fil.write('\n')
+    fil.write(latex(k)+'\n')
+    fil.write('\n')
+    fil.write('------------------------------------------------\n')
+    fil.write('   f\n')
+    fil.write('------------------------------------------------\n')
+    fil.write('\n')
+    fil.write(latex(f)+'\n')
+    fil.write('\n')
 
 print '----------------------------------------------'
 print '               K1'
 print '----------------------------------------------'
-printeq('K1',integrate(diff(f*(k.subs(zi-zj,0)),xi),(yi,-oo,oo)))
+printeq('K1',integrate(diff(fxigtyi*(k.subs(zi-zj,0)),xi),(yi,-oo,xi)) + integrate(diff(fxiltyi*(k.subs(zi-zj,0)),xi),(yi,xi,oo)))
 
 print '----------------------------------------------'
 print '               K2'
@@ -67,7 +82,7 @@ printeq('K5',simplify(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj)))
 print '----------------------------------------------'
 print '               K6'
 print '----------------------------------------------'
-printeq('K6',integrate(diff((f.subs(yi,zi))*k,xi),(zi,-oo,oo)))
+printeq('K6',integrate(diff((fxigtyi.subs(yi,zi))*k,xi),(zi,-oo,xi))+integrate(diff((fxiltyi.subs(yi,zi))*k,xi),(zi,xi,oo)))
 
 print '----------------------------------------------'
 print '               K7'
