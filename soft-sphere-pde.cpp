@@ -3,10 +3,10 @@
 int main(void) {
     ABORIA_VARIABLE(density1p,double,"density")
     ABORIA_VARIABLE(density2p,double,"two particle density")
-    ABORIA_VARIABLE(constant2,double,"c2 value")
+    ABORIA_VARIABLE(constant,double,"constant for basis functions")
     ABORIA_VARIABLE(g_function,double,"g function")
 
-    typedef Particles<std::tuple<density1p,density2p,g_function,constant2>,3> ParticlesType;
+    typedef Particles<std::tuple<density1p,density2p,g_function,constant>,3> ParticlesType;
     typedef position_d<3> position;
     ParticlesType knots;
 
@@ -36,7 +36,7 @@ int main(void) {
                 r *= factorr;
                 get<position>(p) = double3(x/std::sqrt(2.0),x/std::sqrt(2.0)+r*std::cos(theta),r*std::sin(theta));
                 if ((p<low).any() || (p>=high).any()) continue;
-                get<constant2>(p) = 1.0/std::pow(c,2);
+                get<constant>(p) = 1.0/std::pow(c,2);
                 knots.push_back(p);
             }
         }
@@ -48,91 +48,82 @@ int main(void) {
     Symbol<density1p> p;
     Symbol<density2p> P;
     Symbol<g_function> g;
-    Symbol<constant2> c2;
+    Symbol<constant> c;
     Label<0,ParticlesType> a(knots);
     Label<1,ParticlesType> b(knots);
     One one;
     auto dx = create_dx(a,b);
     Accumulate<std::plus<double> > sum;
 
-    auto kernel_3d = create_eigen_operator(a,b,
-            exp(-dot(dx,dx)/c2[b])
+    auto k = deep_copy(
+            exp(-dot(dx,dx)*c[b])
             );
-
-    auto kernel_2d_1_3
-    auto kernel_2d_2_3
-    auto kernel_2d_1_2
-
-    auto f_1_2
-    auto f_1_3
-    auto f_2_1
-    auto f_2_3
-
-    #define MATRIX(name,expr) \\
-    auto name = create_eigen_operator(a,b \\
-            expr \\
-            );
-
-    const double ei = 1.0/0.05;
-    const double ei2 = std::pow(ei,2);
-    auto f = deep_copy(if_else(r[a][0]>r[a][1],-exp((r[a][1]-r[a][0])*ei),exp((r[a][0]-r[a][1])*ei))*ei);
-    auto dfdx = deep_copy(if_else(r[a][0]>r[a][1],exp((r[a][1]-r[a][0])*ei),exp((r[a][0]-r[a][1])*ei))*ei2);
-
-    auto k1 = deep_copy(exp(-pow(dx[0],2)*c2[b]));
-    auto k2 = deep_copy(exp(-(pow(dx[0],2)+pow(dx[1],2))*c2[b]));
-    auto k3 = deep_copy(exp(-(pow(dx[0],2)+pow(dx[1],2)+pow(dx[2],2))*c2[b]));
-    auto dk2dx = deep_copy(-2*dx[0]*exp(-(pow(dx[0],2)+pow(dx[1],2))*c2[b])*c2[b]);
-    auto dk2dy = deep_copy(-2*dx[1]*exp(-(pow(dx[0],2)+pow(dx[1],2))*c2[b])*c2[b]);
-
-    MATRIX(K1, exp(-dot(dx,dx)*c2[b]) )
-    MATRIX(K2, exp(-dot(dx,dx)*c2[b]) )
-
-    auto K1 = create_eigen_operator(a,b,
-            exp(-dot(dx,dx)*c2[b])
+    auto f = deep_copy(
+            if_else(r[a][0] > r[a][1],
+                -epsilon*exp(-epsilon*(r[a][0]-r[a][1])),
+                epsilon*exp(-epsilon*(r[a][1]-r[a][0])),
+                )
             );
 
 
+    auto suberf1 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][1])))-1.0);
+    auto suberf2 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][1])))-1.0);
+    auto subexp1 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
+    auto subexp2 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
 
-    auto dkernel_dx1 = create_eigen_operator(a,b,
-            (-2*r[a][0] + 2*r[b][0])*exp(-dot(dx,dx)/c2[b])/c2[b]
-            );
-    auto dkernel_dx2 = create_eigen_operator(a,b,
-            (-2*r[a][1] + 2*r[b][1])*exp(-dot(dx,dx)/c2[b])/c2[b]
-            );
+    auto K1 = deep_copy(std::sqrt(pi)*epsilon*pow(c2[b],-0.5)*0.5*(
+                -(epsilon+2*c[b]*dx[0])*suberf1*subexp1
+                -(epsilon-2*c[b]*dx[0])*suberf2*subexp2)
+            *exp(-c[b]*(pow(dx[0],2)+pow(r[a][0]-r[b][1],2)));
 
-    auto ikernel_dx3 = create_eigen_operator(a,b,
-            std::sqrt(pi)*c[b]**exp(-(pow(dx[0],2)+pow(dx[1],2))/c2[b])
-            );
+    auto K2 = deep_copy(2*c[b]*(2*c[b]*pow(dx[0],2)-1)*exp(-c[b]*pow(dx[0],2)));
+    auto K3 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
+    auto K4 = deep_copy(exp(-c[b]*(pow(dx[0],2))));
+    auto K5 = deep_copy(exp(-c[b]*(pow(r[b][0]-r[a][1],2))));
+    
+    auto suberf3 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][2])))-1);
+    auto suberf4 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][2])))-1);
+    auto subexp3 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][0]-r[b][2]),2)/c[b]));
+    auto subexp4 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][0]-r[b][2]),2)/c[b]));
+    auto subbigexp1 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(r[a][0]-r[b][2],2))));
+    auto subbigexp2 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(r[a][1]-r[b][2],2))));
 
-    auto dkernel_dx1dx1 = create_eigen_operator(a,b,
-            (4*pow(r[a][0],2) - 2*c2[b])*exp(-dot(dx,dx)/c2[b])/pow(c2[b],2)
-            );
+    auto K6 = deep_copy(std::sqrt(pi)*epsilon*0.5*pow(c[b],-0.5)*(
+                -(epsilon+2*c[b]*dx[0])*suberf3*subexp3
+                -(epsilon-2*c[b]*dx[0])*suberf4*subexp4)
+            *subbigexp1);
 
-    auto dkernel_dx2dx2 = create_eigen_operator(a,b,
-            (4*pow(r[a][1],2) - 2*c2[b])*exp(-dot(dx,dx)/c2[b])/pow(c2[b],2)
-            );
+    auto suberf5 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][1]-r[b][2])))-1);
+    auto suberf6 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][1]-r[b][2])))-1);
+    auto subexp5 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
+    auto subexp6 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
+
+    auto K7 = deep_copy(std::sqrt(pi)*epsilon*sqrt(c[b])*
+        (-dx[0]*(suberf5*subexp5-suberf6*subexp6))*subbigexp2);
+
+    auto K8 = deep_copy(2*c[b]*(r[b][0]-r[a][1])*exp(-c[b]*pow(r[b][0]-r[a][1],2)));
+
+    auto K9 = deep_copy(std::sqrt(pi)*epsilon*pow(c[b],-0.5)*0.5*
+        (suberf5*subexp5-suberf6*subexp6)*subbigexp2);
+
+    auto K10 = deep_copy(std::sqrt(pi)*epsilon*pow(c[b],-0.5)*0.5*
+        (suberf3*subexp3-suberf4*subexp4)*subbigexp1);
+
+    auto K11 = deep_copy(-2*c[b]*dx[0]*exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
+    auto K12 = deep_copy(-2*c[b]*dx[1]*exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
+
+    auto subdiff = deep_copy(c[b]*(pow(dx[0],2)+pow(dx[1],2)));
+    auto K13 = deep_copy(4.0*c[b]*(subdiff-1)*exp(-subdiff));
+
+    auto K14 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(dx[2],2))));
+    auto K15 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(r[b][1]-r[a][2],2))));
+    auto K16 = deep_copy(exp(-c[b]*(pow(r[b][0]-r[a][1],2)+pow(r[b][1]-r[a][2],2))));
+    auto K17 = deep_copy(exp(-c[b]*(pow(r[b][0]-r[a][2],2))));
 
 
-
-
-    auto P = create_eigen_operator(a,one,
-                    1.0,
-            );
-    auto Pt = create_eigen_operator(one,b,
-                    1.0,
-            );
-
-    auto Zero = create_eigen_operator(one,one, 0.);
-
-    auto W = create_block_eigen_operator<2,2>(G, P,
-                                              Pt,Zero);
 
     Eigen::Map<Eigen::Matrix<double,n,1> > s_vect(get<scalar>(particles).data());
 
-    template<typename T1, typename T2>
-    f(T1 arg1, T2 arg2) {
-        return ...
-    }
 
     template<typename K, typename F>
     solve(K kernel, F f) {
@@ -149,46 +140,10 @@ int main(void) {
     }
 
     for (int i=0; i < timesteps; i++) {
-        p[a] = kernel_1*w_p[a];
-        p_2[a] = kernel_2*w_p[a];
-        p_2_dx2[a] = kernel_2_dx2*w_p[a];
-        p_1_2[a] = p[a]*p_2[a];
-        p_dx1[a] = kernel_dx1*w_p[a];
-        p_d2x1[a] = kernel_d2x1*w_p[a];
-        P[a] = kernel_1_2*w_P[a];
-        P_dx1[a] = kernel_dx1*w_P[a];
-        P_dx2[a] = kernel_dx2*w_P[a];
-        P_d2x1[a] = kernel_d2x1*w_P[a];
-        P_d2x2[a] = kernel_d2x2*w_P[a];
-        g[a] = (kernel_1_3*w_P[a])*(kernel_2_3*w_P[a])/(kernel_3*w_p[a]);
-
-        w_g1[a] = solve(kernel_1_2,f(r[a][0],r[a][1])*P[a]);
-        w_g2[a] = solve(kernel_1_2_3,f(r[a][0],r[a][2])*g[a]);
-        w_g3[a] = solve(kernel_1_2_3,f(r[a][1],r[a][2])*g[a]);
-
-        g1_ix2[a] = ikernel_dx2*w_g1[a];
-        g2_ix3[a] = ikernel_dx3*w_g2[a];
-        g3_ix3[a] = ikernel_dx3*w_g3[a];
-
-        g1_ix2_dx1[a] = kernel_ix2_dx1*w_g1[a];
-        g2_ix3_dx1[a] = kernel_ix3_dx1*w_g2[a];
-        g3_ix3_dx2[a] = kernel_ix3_dx2*w_g3[a];
-
-
-        kernel*w_p - kernel*w_p_0 = dt*((n-1)*kernel_f_ix2_dx1*w_P[a] + kernel_d2x1*w_p[a])
-        dpdt[a] = (n-1)*g1_ix2_dx1[a] + p_d2x1[a];
-        p_n+1 - dt*(n-1)*g1_ix2_dx1[a] + p_d2x1[a] = p_n
-        kernel*w_p_n+1 - dt*(n-1)*g1_ix2_dx1[a] + p_d2x1[a] = p_n
-        p_n+1(I - dt*(n-1)*g1_ix2_dx1[a] + p_d2x1[a] = p_n
-        dPdt[a] = -(n-2)*P[a]*g2_ix3[a]*p_dx1[a]/(p[a]*p_1_2[a]) - 
-                    (n-2)*P[a]*g3_ix3[a]*p_2_dx2[a]/(p_1_2[a]*p_2[a]) + 
-                    (n-2)*P[a]*g2_ix3_dx1[a]/(p_1_2[a]) + 
-                    (n-2)*P[a]*g3_ix3_dx2[a]/(p_1_2[a]) + 
-                    (n-2)*g2_ix3[a]*P_dx1[a]/(p_1_2[a]) + 
-                    (n-2)*g3_ix3[a]*P_dx2[a]/(p_1_2[a]) +
-                    P[a]*f_dx1[a] + P[a]*f_dx2[a] + f[a]*P_dx1[a] +
-                    f[a]*P_dx2[a] + P_d2x1[a] + P_d2x2[a];
-        p[a] += dt*dpdt[a];
-
-
+        for (int i=0; i < max_iter; i++) {
+            //solve for J(x_n) (x_{n+1} - x_n) = -F(x_n)
+            //terminate if ||x_{n+1}-x_n|| < tol
+        }
+    }
 }
+
