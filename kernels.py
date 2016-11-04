@@ -92,7 +92,12 @@ printeq('K7',integrate(diff((f.subs(yi,zi).subs(xi,yi))*k,xi),(zi,-oo,oo)))
 print '----------------------------------------------'
 print '               K8'
 print '----------------------------------------------'
-printeq('K8',simplify(diff(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj),yi)))
+printeq('K8',simplify(diff(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi,yi),yi)))
+
+print '----------------------------------------------'
+print '               K18'
+print '----------------------------------------------'
+printeq('K18',simplify(diff(k.subs(zi-zj,0).subs(yi-yj,0),xi)))
 
 print '----------------------------------------------'
 print '               K9'

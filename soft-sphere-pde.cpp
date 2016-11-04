@@ -14,9 +14,31 @@ int main(void) {
 
     ABORIA_VARIABLE(density1p_weights0,double,"n-1 density weights")
     ABORIA_VARIABLE(density2p_weights0,double,"n-1 two particle density weights")
-    ABORIA_VARIABLE(g_function_weights0,double,"n-1 g function weights")
+
+    ABORIA_VARIABLE(FP_vector,double,"FP_vector")
+    ABORIA_VARIABLE(Fp_vector,double,"Fp_vector")
+    ABORIA_VARIABLE(Fg_vector,double,"Fg_vector")
 
     ABORIA_VARIABLE(constant,double,"constant for basis functions")
+
+
+    ABORIA_VARIABLE(K1wP_vector,double,"K1wP")
+    ABORIA_VARIABLE(K2wp_vector,double,"K2wp")
+    ABORIA_VARIABLE(K3wP_vector,double,"K3wP")
+    ABORIA_VARIABLE(K4wp_vector,double,"K4wp")
+    ABORIA_VARIABLE(K5wp_vector,double,"K5wp")
+    ABORIA_VARIABLE(K6wg_vector,double,"K6wg")
+    ABORIA_VARIABLE(K7wg_vector,double,"K7wg")
+    ABORIA_VARIABLE(K8wp_vector,double,"K8wp")
+    ABORIA_VARIABLE(K9wg_vector,double,"K9wg")
+    ABORIA_VARIABLE(K10wg_vector,double,"K10wg")
+    ABORIA_VARIABLE(K11wp_vector,double,"K11wp")
+    ABORIA_VARIABLE(K12wP_vector,double,"K12wp")
+    ABORIA_VARIABLE(K13wP_vector,double,"K13wP")
+    ABORIA_VARIABLE(K14wg_vector,double,"K14wg")
+    ABORIA_VARIABLE(K15wP_vector,double,"K15wP")
+    ABORIA_VARIABLE(K16wP_vector,double,"K16wP")
+    ABORIA_VARIABLE(K17wp_vector,double,"K17wP")
 
     typedef Particles<std::tuple<density1p,density2p,g_function,density1p_weights,density2p_weights,g_function_weights,,density1p_weights,density2p_weights,g_function_weights,constant>,3> ParticlesType;
     typedef position_d<3> position;
@@ -26,9 +48,11 @@ int main(void) {
     const double L = 1.0;
     const double3 low(0,0,0);
     const double3 high(L,L,L);
-    const int max_iter_gmres = 100;
-    const int max_iter_newton = 100;
-    const int restart_gmres = 100;
+    const int max_iter_gmres = 20;
+    const int max_iter_newton = 10;
+    const int restart_gmres = 10;
+    const double tol2_newton = std::pow(1e-6,2);
+    const double tol2_gmres = std::pow(1e-6,2);
     double2 periodic(false);
     const double epsilon = 0.05;
     const double alpha = 30.0;
@@ -78,7 +102,32 @@ int main(void) {
 
     Symbol<density1p_weights0> wp0;
     Symbol<density2p_weights0> wP0;
-    Symbol<g_function_weights0> wg0;
+
+    Symbol<FP_vector> FP;
+    Symbol<Fp_vector> Fp;
+    Symbol<Fg_vector> Fg;
+
+    Symbol<density2p> P;
+    Symbol<g_function> g;
+
+    Symbol<K1wP_vector> K1wP;
+    Symbol<K2wp_vector> K2wp;
+    Symbol<K3wP_vector> K3wP;
+    Symbol<K4wp_vector> K4wp;
+    Symbol<K5wp_vector> K5wp;
+    Symbol<K6wg_vector> K6wg;
+    Symbol<K7wg_vector> K7wg;
+    Symbol<K8wp_vector> K8wp;
+    Symbol<K9wg_vector> K9wg;
+    Symbol<K10wg_vector> K10wg;
+    Symbol<K11wP_vector> K11wP;
+    Symbol<K12wP_vector> K12wP;
+    Symbol<K13wP_vector> K13wP;
+    Symbol<K14wg_vector> K14wg;
+    Symbol<K15wP_vector> K15wP;
+    Symbol<K16wP_vector> K16wP;
+    Symbol<K17wp_vector> K17wp;
+    Symbol<K18wp_vector> K18wp;
 
     Symbol<constant> c;
     Label<0,ParticlesType> a(knots);
@@ -134,6 +183,7 @@ int main(void) {
         (-dx[0]*(suberf5*subexp5-suberf6*subexp6))*subbigexp2);
 
     auto K8 = deep_copy(2*c[b]*(r[b][0]-r[a][1])*exp(-c[b]*pow(r[b][0]-r[a][1],2)));
+    auto K18 = deep_copy(-2*c[b]*(r[a][0]-r[b][0])*exp(-c[b]*pow(r[a][0]-r[b][0],2)));
 
     auto K9 = deep_copy(std::sqrt(pi)*epsilon*pow(c[b],-0.5)*0.5*
         (suberf5*subexp5-suberf6*subexp6)*subbigexp2);
@@ -152,59 +202,131 @@ int main(void) {
     auto K16 = deep_copy(exp(-c[b]*(pow(r[b][0]-r[a][1],2)+pow(r[b][1]-r[a][2],2))));
     auto K17 = deep_copy(exp(-c[b]*(pow(r[b][0]-r[a][2],2))));
 
-    auto fp = deep_copy((N-1)*sum(b,true,K1*wP[b]) + sum(b,true,K2*wp[b]));
+
+    auto fp = deep_copy((N-1)*K1wP[a] + K2wp[a]);
+    auto dfpdp = deep_copy(K2);
     auto fP = deep_copy((N-2)*(
-                (sum(b,true,K3*wP[b])*(sum(b,true,K6*wg[b]) 
-                                      + sum(b,true,K7*wg[b]) 
-                                      - sum(b,true,K8*wp[b])*sum(b,true,K9*wg[b])/sum(b,true,K5*wp[b])
-                                      - sum(b,true,K11*wp[b])*sum(b,true,K10*wg[b])/sum(b,true,K4*wp[b]))
-                + sum(b,true,K11*wP[b])*sum(b,true,K10*wg[b])
-                + sum(b,true,K12*wP[b])*sum(b,true,K9*wg[b]))/(sum(b,true,K4*wp[b])*sum(b,true,K5*wp[b]))
-                + sum(b,true,K13*wP[b])));
+                (K3wP[a]*(K6wg[a] + K7wg[a] 
+                          - K8wp[a]*K9wg[a]/K5wp[a]
+                          - K18wp[a]*K10wg[a]/K4wp[a])
+                + K11wP[a]*K10wg[a]
+                + K12wP[a]*K9wg[a])/(K4wp[a]*K5wp[a])
+                + K13wP[a]));
+    auto dfPdP = deep_copy((N-2)*(
+                (K3*(K6wg[a] + K7wg[a] 
+                          - K8wp[a]*K9wg[a]/K5wp[a]
+                          - K18wp[a]*K10wg[a]/K4wp[a])
+                + K11*K10wg[a]
+                + K12*K9wg[a])/(K4wp[a]*K5wp[a])
+                + K13));
+    auto dfPdp = deep_copy();
+    auto dfPdg = deep_copy();
+
+
     auto fg = deep_copy(sum(b,true,K15*wP[b])*sum(b,true,K16*wP[b])/sum(b,true,K17*wp[b]) - sum(b,true,K14*wg[b]));
 
 
-    auto F1 = 
-    auto J = create_block_eigen_operator<3,3>(A,B,
-                                                     C,Zero);
-    typedef Eigen::Matrix<double,n,1> vector_type;
+    typedef Eigen::Matrix<double,Dynamic,1> vector_type;
+    typedef Eigen::Map<vector_type> map_type;
 
     template<typename Source, typename Result,typename Kernel>
     solve(Kernel &kernel, vector_type &result, vector_type &source) {
-        Eigen::GMRES<decltype(W), Eigen::DiagonalPreconditioner<double>> gmres;
+        Eigen::GMRES<kernel, Eigen::DiagonalPreconditioner<double>> gmres;
         gmres.set_restart(restart_gmres);
         gmres.setMaxIterations(max_iter_gmres);
-        gmres.compute(create_eigen_operator(a,b,kernel));
+        gmres.compute(kernel);
         result = gmres.solve(source);
         std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
     }
 
-    vector_type w0; 
-    vector_type dw; 
-
-    //solve for w0 weights from initial condition
-    //
-    //solve for p weights
-    solve<density1p,density1p_weights>(K4);
+    solve(create_eigen_kernel(a,b,K4),
+            map_type(get<density1p_weights>(knots,n)),
+            map_type(get<density1p>(knots,n)));
     
-    //estimate P and g
+    //estimate P and solve for weights 
     P[a] = sum(b,true,K4*wp)*sum(b,true,K5*wp);
-    solve<density2p,density2p_weights>(K3);
-
+    solve(create_eigen_kernel(a,b,K3),
+            map_type(get<density2p_weights>(knots,n)),
+            map_type(get<density2p>(knots,n)));
+    
+    //estimate g and solve for weights 
     g[a] = sum(b,true,K15*wP)*sum(b,true,K16*wP)/sum(b,true,K17*wP);
-    solve<g_function,g_function_weights>(K14);
+    solve(create_eigen_kernel(a,b,K14),
+            map_type(get<g_function_weights>(knots,n)),
+            map_type(get<g_function>(knots,n)));
 
+    //init last iteration weights
     wp0[a] = wp[a];
     wP0[a] = wP[a];
     wg0[a] = wg[a];
 
+    vector_type source(3*n);
+    vector_type result(3*n);
     for (int i=0; i < timesteps; i++) {
-        for (int i=0; i < max_iter_newton; i++) {
-            //solve for J(x_n) (x_{n+1} - x_n) = -F(x_n)
-            solve(
+        int ii=0
+        for (; ii < max_iter_newton; ii++) {
             
+            //evaluate temporaries
+            K3wP[a] = sum(b,K3*wP[b]);
+            K4wp[a] = sum(b,K4*wp[b]);
+            ...
+
+            FP[a] = dt*fP - sum(b,K3*(wp[b]-wp0[b]));
+            Fp[a] = dt*fp - sum(b,K4*(wp[b]-wp0[b]));
+            Fg[a] = fg;
+
+            //copy F* to b
+            source.segment(0,n) = -map_type(get<FP_vector>(knots),n);
+            source.segment(n,2*n) = -map_type(get<Fp_vector>(knots),n);
+            source.segment(2*n,3*n) = -map_type(get<Fg_vector>(knots),n);
+
+            //create J operator
+            auto JPP = create_eigen_operator(a,b,dt*dfPdP - K3);
+            auto JPp = create_eigen_operator(a,b,dt*dfPdp);
+            auto JPg = create_eigen_operator(a,b,dt*dfPdg);
+            auto JpP = create_eigen_operator(a,b,dt*dfpdP);
+            auto Jpp = create_eigen_operator(a,b,dt*dfpdp - K4);
+            auto Jpg = create_eigen_operator(a,b,dt*dfpdg);
+            auto JgP = create_eigen_operator(a,b,dt*dfgdP);
+            auto Jgp = create_eigen_operator(a,b,dt*dfgdp);
+            auto Jgg = create_eigen_operator(a,b,dt*dfgdg);
+
+            //solve for J(x_n) (x_{n+1} - x_n) = -F(x_n)
+            solve(create_block_eigen_operator<3,3>(
+                        JPP,JPp,JPg,
+                        JpP,Jpp,Jpg,
+                        JgP,Jgp,Jgg,
+                        )
+                    result,source);
+
+            
+            //increment weights by result
+            map_type(get<density2p_weights>(knots),n) += result.segment(0,n);
+            map_type(get<density1p_weights>(knots),n) += result.segment(n,2*n);
+            map_type(get<g_function_weights>(knots),n) += result.segment(2*n,3*n);
+                        
             //terminate if ||x_{n+1}-x_n|| < tol
+            if (result.squaredNorm() < tol2_gmres) {
+                break;
+            }
         }
+        std::cout << "finished newton iterations, ii = "<<ii<<"/"<<max_iter_newton<<std::endl;
+        
+        //use F residuals to hold dws
+        FP[a] = wP[a] - wP0[a];
+        Fp[a] = wp[a] - wp0[a];
+        Fg[a] = wg[a] - wg0[a];
+
+        //set w0's to w's
+        wP0[a] = wP[a];
+        wp0[a] = wp[a];
+        wg0[a] = wg[a];
+
+        //predict next w's
+        wP[a] = wP0[a] + FP[a];
+        wp[a] = wp0[a] + Fp[a];
+        wg[a] = wg0[a] + Fg[a];
+
     }
 }
 

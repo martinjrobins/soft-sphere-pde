@@ -28,6 +28,8 @@ inv = lambda i: 1/i
 inv2 = lambda i: 1/(i**2)
 
 print '-------------------------------------'
+print '     Kx.Ly.(Mz)-1'
+print '-------------------------------------'
 
 term = (K*x).multiply_elementwise(L*y).multiply_elementwise((M*z).applyfunc(inv)).multiply_elementwise((S*z).applyfunc(inv))
 
