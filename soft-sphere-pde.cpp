@@ -4,21 +4,45 @@
 using namespace Aboria;
 
 #include <boost/math/constants/constants.hpp>
+#include "boost/program_options.hpp" 
+namespace po = boost::program_options;
 
 const double PI = boost::math::constants::pi<double>();
 
 template<typename Kernel,typename VectorType>
-void solve(Kernel &kernel, VectorType &result, VectorType &source, size_t max_iter=10, size_t restart=10) {
-    Eigen::GMRES<Kernel, Eigen::DiagonalPreconditioner<double>> gmres;
-    gmres.set_restart(restart);
+void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max_iter=10, size_t restart=10) {
+    Eigen::ConjugateGradient<Kernel, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>> gmres;
+    //Eigen::GMRES<Kernel, Eigen::DiagonalPreconditioner<double>> gmres;
+    //gmres.set_restart(restart);
     gmres.setMaxIterations(max_iter);
     gmres.compute(kernel);
     result = gmres.solve(source);
-    std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
+    std::cout << "Solver:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
 
+    unsigned int nout,max_iter_linear,restart_linear;
+    double dt_aim,c0;
+
+    po::options_description desc("Allowed options");
+    desc.add_options()
+        ("help", "produce help message")
+        ("max_iter_linear", po::value<unsigned int>(&max_iter_linear)->default_value(20), "maximum iterations for linear solve")
+        ("restart_linear", po::value<unsigned int>(&restart_linear)->default_value(20), "iterations until restart for linear solve")
+        ("nout", po::value<unsigned int>(&nout)->default_value(10), "number of output points")
+        ("c0", po::value<double>(&c0)->default_value(1.0), "kernel constant")
+        ("dt", po::value<double>(&dt_aim)->default_value(0.0001), "timestep")
+    ;
+    
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);  
+
+    if (vm.count("help")) {
+        cout << desc << "\n";
+        return 1;
+    }
 
     ABORIA_VARIABLE(density1p,double,"density")
     ABORIA_VARIABLE(density2p,double,"two particle density")
@@ -70,13 +94,10 @@ int main(void) {
     typedef position_d<3> position;
     ParticlesType knots;
 
-    const double c0 = 0.5;
     const double L = 1.0;
     const double3 low(0,0,0);
     const double3 high(L,L,L);
-    const int max_iter_gmres = 20;
     const int max_iter_newton = 10;
-    const int restart_gmres = 10;
     const double tol2_newton = std::pow(1e-6,2);
     const double tol2_gmres = std::pow(1e-6,2);
     double2 periodic(false);
@@ -84,7 +105,6 @@ int main(void) {
     const double alpha = 30.0;
     const double theta = 0.2;
     const double Tf = 0.02;
-    const double dt_aim = 0.001;
     const int timesteps = Tf/dt_aim;
     const double dt = Tf/timesteps;
     const int N = 16;
@@ -92,7 +112,7 @@ int main(void) {
     const int nx = 7;
     const int ntheta = 5;
     const int nr = 5;
-    const int n = nx*ntheta*nr;
+    int n = nx*ntheta*nr;
     const double deltar = 0.1;
     const double factorr = 1.01;
     const double deltax = std::sqrt(1.0)/nx;
@@ -115,7 +135,8 @@ int main(void) {
     }
     std::cout << "added "<<knots.size()<<" knots" << std::endl;
     std::cout << "expected "<<n<<" knots" << std::endl;
-    knots.init_neighbour_search(low,high,c0,bool3(true,true,true));
+    knots.init_neighbour_search(low,high,L/10,bool3(true,true,true));
+    n = knots.size();
 
     Symbol<position> r;
     Symbol<density1p> p;
@@ -241,20 +262,20 @@ int main(void) {
     
 
     solve(create_eigen_operator(a,b,K4),
-            map_type(get<density1p_weights>(knots,n)),
-            map_type(get<density1p>(knots,n)),max_iter_gmres,max_iter_gmres);
+            map_type(get<density1p_weights>(knots).data(),n),
+            map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear);
     
     //estimate P and solve for weights 
-    P[a] = sum(b,true,K4*wp)*sum(b,true,K5*wp);
+    P[a] = sum(b,true,K4*wp[b])*sum(b,true,K5*wp[b]);
     solve(create_eigen_operator(a,b,K3),
-            map_type(get<density2p_weights>(knots,n)),
-            map_type(get<density2p>(knots,n)),max_iter_gmres,max_iter_gmres);
+            map_type(get<density2p_weights>(knots).data(),n),
+            map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear);
     
     //estimate g and solve for weights 
-    g[a] = sum(b,true,K15*wP)*sum(b,true,K16*wP)/sum(b,true,K17*wP);
+    g[a] = sum(b,true,K15*wP[b])*sum(b,true,K16*wP[b])/sum(b,true,K17*wP[b]);
     solve(create_eigen_operator(a,b,K14),
-            map_type(get<g_function_weights>(knots,n)),
-            map_type(get<g_function>(knots,n)),max_iter_gmres,max_iter_gmres);
+            map_type(get<g_function_weights>(knots).data(),n),
+            map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear);
 
     //init last iteration weights
     wp0[a] = wp[a];
@@ -264,37 +285,37 @@ int main(void) {
     vector_type result(3*n);
     for (int i=0; i < timesteps; i++) {
         //evaluate temporaries
-        K3wP[a] = sum(b,K3*wP[b]);
-        K4wp[a] = sum(b,K4*wp[b]);
-        K5wp[a] = sum(b,K5*wp[b]);
-        K6wg[a] = sum(b,K6*wg[b]);
-        K7wg[a] = sum(b,K7*wg[b]);
-        K8wp[a] = sum(b,K8*wp[b]);
-        K9wg[a] = sum(b,K9*wg[b]);
-        K10wg[a] = sum(b,K10*wg[b]);
-        K11wP[a] = sum(b,K11*wP[b]);
-        K12wP[a] = sum(b,K12*wP[b]);
-        K13wP[a] = sum(b,K13*wP[b]);
-        K14wg[a] = sum(b,K14*wg[b]);
-        K15wP[a] = sum(b,K15*wP[b]);
-        K16wP[a] = sum(b,K16*wP[b]);
-        K17wp[a] = sum(b,K17*wp[b]);
-        K18wp[a] = sum(b,K18*wp[b]);
+        K3wP[a] = sum(b,true,K3*wP[b]);
+        K4wp[a] = sum(b,true,K4*wp[b]);
+        K5wp[a] = sum(b,true,K5*wp[b]);
+        K6wg[a] = sum(b,true,K6*wg[b]);
+        K7wg[a] = sum(b,true,K7*wg[b]);
+        K8wp[a] = sum(b,true,K8*wp[b]);
+        K9wg[a] = sum(b,true,K9*wg[b]);
+        K10wg[a] = sum(b,true,K10*wg[b]);
+        K11wP[a] = sum(b,true,K11*wP[b]);
+        K12wP[a] = sum(b,true,K12*wP[b]);
+        K13wP[a] = sum(b,true,K13*wP[b]);
+        K14wg[a] = sum(b,true,K14*wg[b]);
+        K15wP[a] = sum(b,true,K15*wP[b]);
+        K16wP[a] = sum(b,true,K16*wP[b]);
+        K17wp[a] = sum(b,true,K17*wp[b]);
+        K18wp[a] = sum(b,true,K18*wp[b]);
 
         //explicit euler step
-        P[a] = dt*fP + sum(b,K3*P[a]);
-        p[a] = dt*fp + sum(b,K4*P[a]);
-        solve(create_eigen_operator(3,b,K3),
-            map_type(get<density1p_weights>(knots,n)),
-            map_type(get<density1p>(knots,n)),max_iter_gmres,max_iter_gmres);
-        solve(create_eigen_operator(3,b,K4),
-            map_type(get<density2p_weights>(knots,n)),
-            map_type(get<density2p>(knots,n)),max_iter_gmres,max_iter_gmres);
+        P[a] = dt*fP + sum(b,true,K3*P[a]);
+        p[a] = dt*fp + sum(b,true,K4*P[a]);
+        solve(create_eigen_operator(a,b,K3),
+            map_type(get<density1p_weights>(knots).data(),n),
+            map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear);
+        solve(create_eigen_operator(a,b,K4),
+            map_type(get<density2p_weights>(knots).data(),n),
+            map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear);
         
         g[a] = fg;
         solve(create_eigen_operator(a,b,K14),
-            map_type(get<g_function_weights>(knots,n)),
-            map_type(get<g_function>(knots,n)),max_iter_gmres,max_iter_gmres);
+            map_type(get<g_function_weights>(knots).data(),n),
+            map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear);
 
 #ifdef HAVE_VTK
         vtkWriteGrid("knots_explicit",i,knots.get_grid(true));
@@ -314,9 +335,9 @@ int main(void) {
             Fg[a] = fg - sum(b,true,K14*wg[b]);
 
             //copy F* to b
-            source.segment(0,n) = -map_type(get<FP_vector>(knots),n);
-            source.segment(n,2*n) = -map_type(get<Fp_vector>(knots),n);
-            source.segment(2*n,3*n) = -map_type(get<Fg_vector>(knots),n);
+            source.segment(0,n) = -map_type(get<FP_vector>(knots).data(),n);
+            source.segment(n,2*n) = -map_type(get<Fp_vector>(knots).data(),n);
+            source.segment(2*n,3*n) = -map_type(get<Fg_vector>(knots).data(),n);
 
             //create J operator
             auto JPP = create_eigen_operator(a,b,dt*dfPdP - K3);
@@ -339,9 +360,9 @@ int main(void) {
 
             
             //increment weights by result
-            map_type(get<density2p_weights>(knots),n) += result.segment(0,n);
-            map_type(get<density1p_weights>(knots),n) += result.segment(n,2*n);
-            map_type(get<g_function_weights>(knots),n) += result.segment(2*n,3*n);
+            map_type(get<density2p_weights>(knots).data(),n) += result.segment(0,n);
+            map_type(get<density1p_weights>(knots).data(),n) += result.segment(n,2*n);
+            map_type(get<g_function_weights>(knots).data(),n) += result.segment(2*n,3*n);
                         
             //terminate if ||x_{n+1}-x_n|| < tol
             if (result.squaredNorm() < tol2_gmres) {

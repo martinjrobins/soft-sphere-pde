@@ -10,7 +10,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/Aboria/cmake"
 list(APPEND CMAKE_CXX_FLAGS "-Wno-deprecated -std=c++11")
 list(APPEND CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 
-find_package(Boost 1.50.0 REQUIRED)
+find_package(Boost 1.50.0 COMPONENTS program_options REQUIRED)
 
 find_package(VTK REQUIRED)
 add_definitions(-DHAVE_VTK)
