@@ -1,9 +1,25 @@
-#include <math.h>
+#define BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
+#define BOOST_MPL_LIMIT_VECTOR_SIZE 40
+#include "Aboria.h"
+using namespace Aboria;
 
+#include <boost/math/constants/constants.hpp>
 
+const double PI = boost::math::constants::pi<double>();
 
+template<typename Kernel,typename VectorType>
+void solve(Kernel &kernel, VectorType &result, VectorType &source, size_t max_iter=10, size_t restart=10) {
+    Eigen::GMRES<Kernel, Eigen::DiagonalPreconditioner<double>> gmres;
+    gmres.set_restart(restart);
+    gmres.setMaxIterations(max_iter);
+    gmres.compute(kernel);
+    result = gmres.solve(source);
+    std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
+}
 
 int main(void) {
+
+
     ABORIA_VARIABLE(density1p,double,"density")
     ABORIA_VARIABLE(density2p,double,"two particle density")
     ABORIA_VARIABLE(g_function,double,"g function")
@@ -21,7 +37,6 @@ int main(void) {
 
     ABORIA_VARIABLE(constant,double,"constant for basis functions")
 
-
     ABORIA_VARIABLE(K1wP_vector,double,"K1wP")
     ABORIA_VARIABLE(K2wp_vector,double,"K2wp")
     ABORIA_VARIABLE(K3wP_vector,double,"K3wP")
@@ -32,19 +47,30 @@ int main(void) {
     ABORIA_VARIABLE(K8wp_vector,double,"K8wp")
     ABORIA_VARIABLE(K9wg_vector,double,"K9wg")
     ABORIA_VARIABLE(K10wg_vector,double,"K10wg")
-    ABORIA_VARIABLE(K11wp_vector,double,"K11wp")
+    ABORIA_VARIABLE(K11wP_vector,double,"K11wP")
     ABORIA_VARIABLE(K12wP_vector,double,"K12wp")
     ABORIA_VARIABLE(K13wP_vector,double,"K13wP")
     ABORIA_VARIABLE(K14wg_vector,double,"K14wg")
     ABORIA_VARIABLE(K15wP_vector,double,"K15wP")
     ABORIA_VARIABLE(K16wP_vector,double,"K16wP")
     ABORIA_VARIABLE(K17wp_vector,double,"K17wP")
+    ABORIA_VARIABLE(K18wp_vector,double,"K18wp")
 
-    typedef Particles<std::tuple<density1p,density2p,g_function,density1p_weights,density2p_weights,g_function_weights,,density1p_weights,density2p_weights,g_function_weights,constant>,3> ParticlesType;
+    typedef Particles<std::tuple<
+            density1p,density2p,g_function,
+            density1p_weights,density2p_weights,g_function_weights,
+            density1p_weights0,density2p_weights0,
+            FP_vector, Fp_vector, Fg_vector,
+            constant,
+            K1wP_vector,K2wp_vector,K3wP_vector,K4wp_vector,K5wp_vector,
+            K6wg_vector,K7wg_vector,K8wp_vector,K9wg_vector,K10wg_vector,
+            K11wP_vector,K12wP_vector,K13wP_vector,K14wg_vector,
+            K15wP_vector,K16wP_vector,K17wp_vector,K18wp_vector
+            >,3> ParticlesType;
     typedef position_d<3> position;
     ParticlesType knots;
 
-    const double c = 0.5;
+    const double c0 = 0.5;
     const double L = 1.0;
     const double3 low(0,0,0);
     const double3 high(L,L,L);
@@ -59,7 +85,7 @@ int main(void) {
     const double theta = 0.2;
     const double Tf = 0.02;
     const double dt_aim = 0.001;
-    const int timesteps = Tf/dt;
+    const int timesteps = Tf/dt_aim;
     const double dt = Tf/timesteps;
     const int N = 16;
     
@@ -70,8 +96,8 @@ int main(void) {
     const double deltar = 0.1;
     const double factorr = 1.01;
     const double deltax = std::sqrt(1.0)/nx;
-    const double deltatheta = 2*pi/nx;
-    typename ParticlesType::value_type p;
+    const double deltatheta = 2*PI/nx;
+    typename ParticlesType::value_type particle;
     for (int i=0; i<=nx; ++i) {
         const double x = i*deltax;
         for (int j=0; j<=ntheta; ++j) {
@@ -79,17 +105,17 @@ int main(void) {
             double r = deltar/factorr;
             for (int k=0; j<=nr; ++j) {
                 r *= factorr;
-                get<position>(p) = double3(x/std::sqrt(2.0),x/std::sqrt(2.0)+r*std::cos(theta),r*std::sin(theta));
-                if ((p<low).any() || (p>=high).any()) continue;
-                get<constant>(p) = 1.0/std::pow(c,2);
-                get<density1p>(p) = 0.5*(tanh(alpha*(x-theta))+tanh(alpha*(1-theta-x)));
-                knots.push_back(p);
+                get<position>(particle) = double3(x/std::sqrt(2.0),x/std::sqrt(2.0)+r*std::cos(theta),r*std::sin(theta));
+                if ((get<position>(particle)<low).any() || (get<position>(particle)>=high).any()) continue;
+                get<constant>(particle) = c0;
+                get<density1p>(particle) = 0.5*(tanh(alpha*(x-theta))+tanh(alpha*(1-theta-x)));
+                knots.push_back(particle);
             }
         }
     }
     std::cout << "added "<<knots.size()<<" knots" << std::endl;
     std::cout << "expected "<<n<<" knots" << std::endl;
-    knots.init_neighbour_search(low,high,std::pow(c,2),bool3(true,true,true));
+    knots.init_neighbour_search(low,high,c0,bool3(true,true,true));
 
     Symbol<position> r;
     Symbol<density1p> p;
@@ -106,9 +132,6 @@ int main(void) {
     Symbol<FP_vector> FP;
     Symbol<Fp_vector> Fp;
     Symbol<Fg_vector> Fg;
-
-    Symbol<density2p> P;
-    Symbol<g_function> g;
 
     Symbol<K1wP_vector> K1wP;
     Symbol<K2wp_vector> K2wp;
@@ -132,7 +155,6 @@ int main(void) {
     Symbol<constant> c;
     Label<0,ParticlesType> a(knots);
     Label<1,ParticlesType> b(knots);
-    One one;
     auto dx = create_dx(a,b);
     Accumulate<std::plus<double> > sum;
 
@@ -142,20 +164,19 @@ int main(void) {
     auto f = deep_copy(
             if_else(r[a][0] > r[a][1],
                 -epsilon*exp(-epsilon*(r[a][0]-r[a][1])),
-                epsilon*exp(-epsilon*(r[a][1]-r[a][0])),
+                epsilon*exp(-epsilon*(r[a][1]-r[a][0]))
                 )
             );
-
 
     auto suberf1 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][1])))-1.0);
     auto suberf2 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][1])))-1.0);
     auto subexp1 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
     auto subexp2 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
 
-    auto K1 = deep_copy(std::sqrt(pi)*epsilon*pow(c2[b],-0.5)*0.5*(
+    auto K1 = deep_copy(std::sqrt(PI)*epsilon*pow(c[b],-0.5)*0.5*(
                 -(epsilon+2*c[b]*dx[0])*suberf1*subexp1
                 -(epsilon-2*c[b]*dx[0])*suberf2*subexp2)
-            *exp(-c[b]*(pow(dx[0],2)+pow(r[a][0]-r[b][1],2)));
+            *exp(-c[b]*(pow(dx[0],2)+pow(r[a][0]-r[b][1],2))));
 
     auto K2 = deep_copy(2*c[b]*(2*c[b]*pow(dx[0],2)-1)*exp(-c[b]*pow(dx[0],2)));
     auto K3 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
@@ -169,7 +190,7 @@ int main(void) {
     auto subbigexp1 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(r[a][0]-r[b][2],2))));
     auto subbigexp2 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(r[a][1]-r[b][2],2))));
 
-    auto K6 = deep_copy(std::sqrt(pi)*epsilon*0.5*pow(c[b],-0.5)*(
+    auto K6 = deep_copy(std::sqrt(PI)*epsilon*0.5*pow(c[b],-0.5)*(
                 -(epsilon+2*c[b]*dx[0])*suberf3*subexp3
                 -(epsilon-2*c[b]*dx[0])*suberf4*subexp4)
             *subbigexp1);
@@ -179,16 +200,16 @@ int main(void) {
     auto subexp5 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
     auto subexp6 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
 
-    auto K7 = deep_copy(std::sqrt(pi)*epsilon*sqrt(c[b])*
+    auto K7 = deep_copy(std::sqrt(PI)*epsilon*sqrt(c[b])*
         (-dx[0]*(suberf5*subexp5-suberf6*subexp6))*subbigexp2);
 
     auto K8 = deep_copy(2*c[b]*(r[b][0]-r[a][1])*exp(-c[b]*pow(r[b][0]-r[a][1],2)));
     auto K18 = deep_copy(-2*c[b]*(r[a][0]-r[b][0])*exp(-c[b]*pow(r[a][0]-r[b][0],2)));
 
-    auto K9 = deep_copy(std::sqrt(pi)*epsilon*pow(c[b],-0.5)*0.5*
+    auto K9 = deep_copy(std::sqrt(PI)*epsilon*pow(c[b],-0.5)*0.5*
         (suberf5*subexp5-suberf6*subexp6)*subbigexp2);
 
-    auto K10 = deep_copy(std::sqrt(pi)*epsilon*pow(c[b],-0.5)*0.5*
+    auto K10 = deep_copy(std::sqrt(PI)*epsilon*pow(c[b],-0.5)*0.5*
         (suberf3*subexp3-suberf4*subexp4)*subbigexp1);
 
     auto K11 = deep_copy(-2*c[b]*dx[0]*exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
@@ -204,7 +225,6 @@ int main(void) {
 
 
     auto fp = deep_copy((N-1)*K1wP[a] + K2wp[a]);
-    auto dfpdp = deep_copy(K2);
     auto fP = deep_copy((N-2)*(
                 (K3wP[a]*(K6wg[a] + K7wg[a] 
                           - K8wp[a]*K9wg[a]/K5wp[a]
@@ -212,57 +232,75 @@ int main(void) {
                 + K11wP[a]*K10wg[a]
                 + K12wP[a]*K9wg[a])/(K4wp[a]*K5wp[a])
                 + K13wP[a]));
-    auto dfPdP = deep_copy((N-2)*(
-                (K3*(K6wg[a] + K7wg[a] 
-                          - K8wp[a]*K9wg[a]/K5wp[a]
-                          - K18wp[a]*K10wg[a]/K4wp[a])
-                + K11*K10wg[a]
-                + K12*K9wg[a])/(K4wp[a]*K5wp[a])
-                + K13));
-    auto dfPdp = deep_copy();
-    auto dfPdg = deep_copy();
+    auto fg = deep_copy(K15wP[a]*K16wP[a]/K17wp[a]);
 
 
-    auto fg = deep_copy(sum(b,true,K15*wP[b])*sum(b,true,K16*wP[b])/sum(b,true,K17*wp[b]) - sum(b,true,K14*wg[b]));
-
-
-    typedef Eigen::Matrix<double,Dynamic,1> vector_type;
+    typedef Eigen::Matrix<double,Eigen::Dynamic,1> vector_type;
     typedef Eigen::Map<vector_type> map_type;
 
-    template<typename Source, typename Result,typename Kernel>
-    solve(Kernel &kernel, vector_type &result, vector_type &source) {
-        Eigen::GMRES<kernel, Eigen::DiagonalPreconditioner<double>> gmres;
-        gmres.set_restart(restart_gmres);
-        gmres.setMaxIterations(max_iter_gmres);
-        gmres.compute(kernel);
-        result = gmres.solve(source);
-        std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
-    }
+    
 
-    solve(create_eigen_kernel(a,b,K4),
+    solve(create_eigen_operator(a,b,K4),
             map_type(get<density1p_weights>(knots,n)),
-            map_type(get<density1p>(knots,n)));
+            map_type(get<density1p>(knots,n)),max_iter_gmres,max_iter_gmres);
     
     //estimate P and solve for weights 
     P[a] = sum(b,true,K4*wp)*sum(b,true,K5*wp);
-    solve(create_eigen_kernel(a,b,K3),
+    solve(create_eigen_operator(a,b,K3),
             map_type(get<density2p_weights>(knots,n)),
-            map_type(get<density2p>(knots,n)));
+            map_type(get<density2p>(knots,n)),max_iter_gmres,max_iter_gmres);
     
     //estimate g and solve for weights 
     g[a] = sum(b,true,K15*wP)*sum(b,true,K16*wP)/sum(b,true,K17*wP);
-    solve(create_eigen_kernel(a,b,K14),
+    solve(create_eigen_operator(a,b,K14),
             map_type(get<g_function_weights>(knots,n)),
-            map_type(get<g_function>(knots,n)));
+            map_type(get<g_function>(knots,n)),max_iter_gmres,max_iter_gmres);
 
     //init last iteration weights
     wp0[a] = wp[a];
     wP0[a] = wP[a];
-    wg0[a] = wg[a];
 
     vector_type source(3*n);
     vector_type result(3*n);
     for (int i=0; i < timesteps; i++) {
+        //evaluate temporaries
+        K3wP[a] = sum(b,K3*wP[b]);
+        K4wp[a] = sum(b,K4*wp[b]);
+        K5wp[a] = sum(b,K5*wp[b]);
+        K6wg[a] = sum(b,K6*wg[b]);
+        K7wg[a] = sum(b,K7*wg[b]);
+        K8wp[a] = sum(b,K8*wp[b]);
+        K9wg[a] = sum(b,K9*wg[b]);
+        K10wg[a] = sum(b,K10*wg[b]);
+        K11wP[a] = sum(b,K11*wP[b]);
+        K12wP[a] = sum(b,K12*wP[b]);
+        K13wP[a] = sum(b,K13*wP[b]);
+        K14wg[a] = sum(b,K14*wg[b]);
+        K15wP[a] = sum(b,K15*wP[b]);
+        K16wP[a] = sum(b,K16*wP[b]);
+        K17wp[a] = sum(b,K17*wp[b]);
+        K18wp[a] = sum(b,K18*wp[b]);
+
+        //explicit euler step
+        P[a] = dt*fP + sum(b,K3*P[a]);
+        p[a] = dt*fp + sum(b,K4*P[a]);
+        solve(create_eigen_operator(3,b,K3),
+            map_type(get<density1p_weights>(knots,n)),
+            map_type(get<density1p>(knots,n)),max_iter_gmres,max_iter_gmres);
+        solve(create_eigen_operator(3,b,K4),
+            map_type(get<density2p_weights>(knots,n)),
+            map_type(get<density2p>(knots,n)),max_iter_gmres,max_iter_gmres);
+        
+        g[a] = fg;
+        solve(create_eigen_operator(a,b,K14),
+            map_type(get<g_function_weights>(knots,n)),
+            map_type(get<g_function>(knots,n)),max_iter_gmres,max_iter_gmres);
+
+#ifdef HAVE_VTK
+        vtkWriteGrid("knots_explicit",i,knots.get_grid(true));
+#endif
+        
+        /*
         int ii=0
         for (; ii < max_iter_newton; ii++) {
             
@@ -273,7 +311,7 @@ int main(void) {
 
             FP[a] = dt*fP - sum(b,K3*(wp[b]-wp0[b]));
             Fp[a] = dt*fp - sum(b,K4*(wp[b]-wp0[b]));
-            Fg[a] = fg;
+            Fg[a] = fg - sum(b,true,K14*wg[b]);
 
             //copy F* to b
             source.segment(0,n) = -map_type(get<FP_vector>(knots),n);
@@ -310,22 +348,9 @@ int main(void) {
                 break;
             }
         }
+
         std::cout << "finished newton iterations, ii = "<<ii<<"/"<<max_iter_newton<<std::endl;
-        
-        //use F residuals to hold dws
-        FP[a] = wP[a] - wP0[a];
-        Fp[a] = wp[a] - wp0[a];
-        Fg[a] = wg[a] - wg0[a];
-
-        //set w0's to w's
-        wP0[a] = wP[a];
-        wp0[a] = wp[a];
-        wg0[a] = wg[a];
-
-        //predict next w's
-        wP[a] = wP0[a] + FP[a];
-        wp[a] = wp0[a] + Fp[a];
-        wg[a] = wg0[a] + Fg[a];
+        */
 
     }
 }
