@@ -22,8 +22,8 @@ void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max
 
 int main(int argc, char **argv) {
 
-    unsigned int nout,max_iter_linear,restart_linear;
-    double dt_aim,c0;
+    unsigned int nout,max_iter_linear,restart_linear,nx,nr;
+    double dt_aim,c0,factorr;
 
     po::options_description desc("Allowed options");
     desc.add_options()
@@ -32,6 +32,9 @@ int main(int argc, char **argv) {
         ("restart_linear", po::value<unsigned int>(&restart_linear)->default_value(20), "iterations until restart for linear solve")
         ("nout", po::value<unsigned int>(&nout)->default_value(10), "number of output points")
         ("c0", po::value<double>(&c0)->default_value(1.0), "kernel constant")
+        ("nx", po::value<unsigned int>(&nx)->default_value(10), "nx")
+        ("nr", po::value<unsigned int>(&nr)->default_value(10), "nr")
+        ("factorr", po::value<double>(&factorr)->default_value(1.5), "factorr")
         ("dt", po::value<double>(&dt_aim)->default_value(0.0001), "timestep")
     ;
     
@@ -109,23 +112,28 @@ int main(int argc, char **argv) {
     const double dt = Tf/timesteps;
     const int N = 16;
     
-    const int nx = 7;
-    const int ntheta = 5;
-    const int nr = 5;
-    int n = nx*ntheta*nr;
-    const double deltar = 0.1;
-    const double factorr = 1.01;
-    const double deltax = std::sqrt(1.0)/nx;
-    const double deltatheta = 2*PI/nx;
+    int n = nx*nr*nx;
+    const double deltax = std::sqrt(2.0)/nx;
     typename ParticlesType::value_type particle;
     for (int i=0; i<=nx; ++i) {
         const double x = i*deltax;
-        for (int j=0; j<=ntheta; ++j) {
-            const double theta = j*deltatheta;
-            double r = deltar/factorr;
-            for (int k=0; j<=nr; ++j) {
-                r *= factorr;
-                get<position>(particle) = double3(x/std::sqrt(2.0),x/std::sqrt(2.0)+r*std::cos(theta),r*std::sin(theta));
+        double deltar = L*(1-factorr)/(1-std::pow(factorr,nr+1));
+        double r = 0;
+        for (int k=0; k<=nr; ++k) {
+            r += deltar;
+            deltar *= factorr;
+            double deltatheta = deltar/r;
+            const double ntheta = 2*PI/deltatheta;
+            const double start_theta = deltatheta*(k%2)/2.0;
+            for (int j=0; j<=ntheta; ++j) {
+                const double theta = j*deltatheta + start_theta;
+                //std::cout << "x, r, theta = "<<x<<","<<r<<","<<theta<<std::endl;
+//get<position>(particle) = double3((x-r*cos(theta))/std::sqrt(2.0),(x+r*cos(theta))/std::sqrt(2.0),r*std::sin(theta));
+                get<position>(particle) = double3(
+                            x/std::sqrt(3) - std::sqrt(6)*r*sin(theta+PI/3.0)/3.0,
+                            x/std::sqrt(3) + std::sqrt(6)*r*cos(theta+PI/3.0)/3.0,
+                            x/std::sqrt(3) + std::sqrt(6)*r*sin(theta)/3.0
+                            );
                 if ((get<position>(particle)<low).any() || (get<position>(particle)>=high).any()) continue;
                 get<constant>(particle) = c0;
                 get<density1p>(particle) = 0.5*(tanh(alpha*(x-theta))+tanh(alpha*(1-theta-x)));
@@ -137,6 +145,11 @@ int main(int argc, char **argv) {
     std::cout << "expected "<<n<<" knots" << std::endl;
     knots.init_neighbour_search(low,high,L/10,bool3(true,true,true));
     n = knots.size();
+
+#ifdef HAVE_VTK
+    vtkWriteGrid("knots_init",0,knots.get_grid(true));
+#endif
+ 
 
     Symbol<position> r;
     Symbol<density1p> p;

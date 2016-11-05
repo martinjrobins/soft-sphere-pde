@@ -1,2 +1,9 @@
 env
 equations.tex
+*.vtu
+*.json
+Makefile
+CMakeCache.txt
+CMakeFiles
+soft-sphere-pde
+cmake_install.cmake
