@@ -8,28 +8,44 @@ using namespace Aboria;
 namespace po = boost::program_options;
 
 const double PI = boost::math::constants::pi<double>();
+enum linear_solver {CG, GMRES};
 
 template<typename Kernel,typename VectorType>
-void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max_iter=10, size_t restart=10) {
-    Eigen::ConjugateGradient<Kernel, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>> gmres;
-    //Eigen::GMRES<Kernel, Eigen::DiagonalPreconditioner<double>> gmres;
-    //gmres.set_restart(restart);
-    gmres.setMaxIterations(max_iter);
-    gmres.compute(kernel);
-    result = gmres.solve(source);
-    std::cout << "Solver:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
+void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max_iter=10, size_t restart=10, linear_solver solver=CG) {
+    switch (solver) {
+        case CG: {
+            Eigen::ConjugateGradient<Kernel, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>> cg;
+            cg.setMaxIterations(max_iter);
+            cg.compute(kernel);
+            result = cg.solve(source);
+            std::cout << "CG:    #iterations: " << cg.iterations() << ", estimated error: " << cg.error() << std::endl;
+            break;
+                 }
+        case GMRES: {
+            Eigen::GMRES<Kernel, Eigen::DiagonalPreconditioner<double>> gmres;
+            gmres.set_restart(restart);
+            gmres.setMaxIterations(max_iter);
+            gmres.compute(kernel);
+            result = gmres.solve(source);
+            std::cout << "GMRES:    #iterations: " << gmres.iterations() << ", estimated error: " << gmres.error() << std::endl;
+            break;
+                    }
+    }
+
 }
 
 int main(int argc, char **argv) {
 
     unsigned int nout,max_iter_linear,restart_linear,nx,nr;
     double dt_aim,c0,factorr;
+    unsigned int solver_in;
 
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
         ("max_iter_linear", po::value<unsigned int>(&max_iter_linear)->default_value(20), "maximum iterations for linear solve")
         ("restart_linear", po::value<unsigned int>(&restart_linear)->default_value(20), "iterations until restart for linear solve")
+        ("linear_solver", po::value<unsigned int>(&solver_in)->default_value(0), "linear solver")
         ("nout", po::value<unsigned int>(&nout)->default_value(10), "number of output points")
         ("c0", po::value<double>(&c0)->default_value(1.0), "kernel constant")
         ("nx", po::value<unsigned int>(&nx)->default_value(10), "nx")
@@ -46,6 +62,7 @@ int main(int argc, char **argv) {
         cout << desc << "\n";
         return 1;
     }
+    
 
     ABORIA_VARIABLE(density1p,double,"density")
     ABORIA_VARIABLE(density2p,double,"two particle density")
@@ -105,12 +122,14 @@ int main(int argc, char **argv) {
     const double tol2_gmres = std::pow(1e-6,2);
     double2 periodic(false);
     const double epsilon = 0.05;
-    const double alpha = 30.0;
     const double theta = 0.2;
     const double Tf = 0.02;
     const int timesteps = Tf/dt_aim;
     const double dt = Tf/timesteps;
     const int N = 16;
+    const double id_theta = 0.2;
+    const double id_alpha = 30.0;
+
     
     int n = nx*nr*nx;
     const double deltax = std::sqrt(2.0)/nx;
@@ -136,7 +155,7 @@ int main(int argc, char **argv) {
                             );
                 if ((get<position>(particle)<low).any() || (get<position>(particle)>=high).any()) continue;
                 get<constant>(particle) = c0;
-                get<density1p>(particle) = 0.5*(tanh(alpha*(x-theta))+tanh(alpha*(1-theta-x)));
+                get<density1p>(particle) = 0.5*(tanh(id_alpha*(get<position>(particle)[0]-id_theta))+tanh(id_alpha*(1-id_theta-get<position>(particle)[0])));
                 knots.push_back(particle);
             }
         }
@@ -276,23 +295,28 @@ int main(int argc, char **argv) {
 
     solve(create_eigen_operator(a,b,K4),
             map_type(get<density1p_weights>(knots).data(),n),
-            map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear);
+            map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
     
     //estimate P and solve for weights 
     P[a] = sum(b,true,K4*wp[b])*sum(b,true,K5*wp[b]);
     solve(create_eigen_operator(a,b,K3),
             map_type(get<density2p_weights>(knots).data(),n),
-            map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear);
+            map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
     
     //estimate g and solve for weights 
     g[a] = sum(b,true,K15*wP[b])*sum(b,true,K16*wP[b])/sum(b,true,K17*wP[b]);
     solve(create_eigen_operator(a,b,K14),
             map_type(get<g_function_weights>(knots).data(),n),
-            map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear);
+            map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
 
     //init last iteration weights
     wp0[a] = wp[a];
     wP0[a] = wP[a];
+
+
+#ifdef HAVE_VTK
+    vtkWriteGrid("knots_init",1,knots.get_grid(true));
+#endif
 
     vector_type source(3*n);
     vector_type result(3*n);
@@ -316,19 +340,19 @@ int main(int argc, char **argv) {
         K18wp[a] = sum(b,true,K18*wp[b]);
 
         //explicit euler step
-        P[a] = dt*fP + sum(b,true,K3*P[a]);
-        p[a] = dt*fp + sum(b,true,K4*P[a]);
-        solve(create_eigen_operator(a,b,K3),
-            map_type(get<density1p_weights>(knots).data(),n),
-            map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear);
+        P[a] = dt*fP + K3wP[a];
+        p[a] = dt*fp + K4wp[a];
         solve(create_eigen_operator(a,b,K4),
+            map_type(get<density1p_weights>(knots).data(),n),
+            map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
+        solve(create_eigen_operator(a,b,K3),
             map_type(get<density2p_weights>(knots).data(),n),
-            map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear);
+            map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
         
         g[a] = fg;
         solve(create_eigen_operator(a,b,K14),
             map_type(get<g_function_weights>(knots).data(),n),
-            map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear);
+            map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
 
 #ifdef HAVE_VTK
         vtkWriteGrid("knots_explicit",i,knots.get_grid(true));
