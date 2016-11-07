@@ -77,7 +77,7 @@ printeq('K4',simplify(k.subs(zi-zj,0).subs(yi-yj,0)))
 print '----------------------------------------------'
 print '               K5'
 print '----------------------------------------------'
-printeq('K5',simplify(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi-xj,yi-xj)))
+printeq('K5',simplify(k.subs(zi-zj,0).subs(yi-yj,0).subs(xi,yi)))
 
 print '----------------------------------------------'
 print '               K6'

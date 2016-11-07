@@ -8,7 +8,7 @@ using namespace Aboria;
 namespace po = boost::program_options;
 
 const double PI = boost::math::constants::pi<double>();
-enum linear_solver {CG, GMRES};
+enum linear_solver {CG, BiCGSTAB, GMRES};
 
 template<typename Kernel,typename VectorType>
 void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max_iter=10, size_t restart=10, linear_solver solver=CG) {
@@ -21,6 +21,14 @@ void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max
             std::cout << "CG:    #iterations: " << cg.iterations() << ", estimated error: " << cg.error() << std::endl;
             break;
                  }
+        case BiCGSTAB: {
+            Eigen::BiCGSTAB<Kernel, Eigen::DiagonalPreconditioner<double>> bicg;
+            bicg.setMaxIterations(max_iter);
+            bicg.compute(kernel);
+            result = bicg.solve(source);
+            std::cout << "BiCGSTAB:    #iterations: " << bicg.iterations() << ", estimated error: " << bicg.error() << std::endl;
+            break;
+               }
         case GMRES: {
             Eigen::GMRES<Kernel, Eigen::DiagonalPreconditioner<double>> gmres;
             gmres.set_restart(restart);
@@ -221,14 +229,14 @@ int main(int argc, char **argv) {
                 )
             );
 
-    auto suberf1 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][1])))-1.0);
-    auto suberf2 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][1])))-1.0);
+    auto suberf1 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][1]))));
+    auto suberf2 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][1]))));
     auto subexp1 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
     auto subexp2 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
 
     auto K1 = deep_copy(std::sqrt(PI)*epsilon*pow(c[b],-0.5)*0.5*(
-                -(epsilon+2*c[b]*dx[0])*suberf1*subexp1
-                -(epsilon-2*c[b]*dx[0])*suberf2*subexp2)
+                (epsilon+2*c[b]*dx[0])*suberf1*subexp1
+                +(epsilon-2*c[b]*dx[0])*suberf2*subexp2)
             *exp(-c[b]*(pow(dx[0],2)+pow(r[a][0]-r[b][1],2))));
 
     auto K2 = deep_copy(2*c[b]*(2*c[b]*pow(dx[0],2)-1)*exp(-c[b]*pow(dx[0],2)));
@@ -236,40 +244,41 @@ int main(int argc, char **argv) {
     auto K4 = deep_copy(exp(-c[b]*(pow(dx[0],2))));
     auto K5 = deep_copy(exp(-c[b]*(pow(r[b][0]-r[a][1],2))));
     
-    auto suberf3 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][2])))-1);
-    auto suberf4 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][2])))-1);
+    auto suberf3 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][2]))));
+    auto suberf4 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][2]))));
     auto subexp3 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][0]-r[b][2]),2)/c[b]));
     auto subexp4 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][0]-r[b][2]),2)/c[b]));
     auto subbigexp1 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(r[a][0]-r[b][2],2))));
     auto subbigexp2 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(r[a][1]-r[b][2],2))));
 
     auto K6 = deep_copy(std::sqrt(PI)*epsilon*0.5*pow(c[b],-0.5)*(
-                -(epsilon+2*c[b]*dx[0])*suberf3*subexp3
-                -(epsilon-2*c[b]*dx[0])*suberf4*subexp4)
+                (epsilon+2*c[b]*dx[0])*suberf3*subexp3
+                +(epsilon-2*c[b]*dx[0])*suberf4*subexp4)
             *subbigexp1);
 
-    auto suberf5 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][1]-r[b][2])))-1);
-    auto suberf6 = deep_copy(erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][1]-r[b][2])))-1);
+    auto suberf5 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][1]-r[b][2]))));
+    auto suberf6 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][1]-r[b][2]))));
     auto subexp5 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
     auto subexp6 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
 
     auto K7 = deep_copy(std::sqrt(PI)*epsilon*sqrt(c[b])*
-        (-dx[0]*(suberf5*subexp5-suberf6*subexp6))*subbigexp2);
+        (dx[0]*(suberf5*subexp5-suberf6*subexp6))*subbigexp2);
 
     auto K8 = deep_copy(2*c[b]*(r[b][0]-r[a][1])*exp(-c[b]*pow(r[b][0]-r[a][1],2)));
     auto K18 = deep_copy(-2*c[b]*(r[a][0]-r[b][0])*exp(-c[b]*pow(r[a][0]-r[b][0],2)));
 
     auto K9 = deep_copy(std::sqrt(PI)*epsilon*pow(c[b],-0.5)*0.5*
-        (suberf5*subexp5-suberf6*subexp6)*subbigexp2);
+        (suberf6*subexp6-suberf5*subexp5)*subbigexp2);
 
     auto K10 = deep_copy(std::sqrt(PI)*epsilon*pow(c[b],-0.5)*0.5*
-        (suberf3*subexp3-suberf4*subexp4)*subbigexp1);
+        (suberf4*subexp4-suberf3*subexp3)*subbigexp1);
 
     auto K11 = deep_copy(-2*c[b]*dx[0]*exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
     auto K12 = deep_copy(-2*c[b]*dx[1]*exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2))));
 
     auto subdiff = deep_copy(c[b]*(pow(dx[0],2)+pow(dx[1],2)));
-    auto K13 = deep_copy(4.0*c[b]*(subdiff-1)*exp(-subdiff));
+    auto K13 = deep_copy(4.0*c[b]*(subdiff-1)*exp(epsilon*abs(r[a][0]-r[a][1])+subdiff)*
+                                              exp(-epsilon*abs(r[a][0]-r[a][1])-subdiff));
 
     auto K14 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(dx[1],2)+pow(dx[2],2))));
     auto K15 = deep_copy(exp(-c[b]*(pow(dx[0],2)+pow(r[b][1]-r[a][2],2))));
@@ -304,7 +313,7 @@ int main(int argc, char **argv) {
             map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
     
     //estimate g and solve for weights 
-    g[a] = sum(b,true,K15*wP[b])*sum(b,true,K16*wP[b])/sum(b,true,K17*wP[b]);
+    g[a] = sum(b,true,K15*wP[b])*sum(b,true,K16*wP[b])/sum(b,true,K17*wp[b]);
     solve(create_eigen_operator(a,b,K14),
             map_type(get<g_function_weights>(knots).data(),n),
             map_type(get<g_function>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
@@ -334,9 +343,6 @@ int main(int argc, char **argv) {
         K12wP[a] = sum(b,true,K12*wP[b]);
         K13wP[a] = sum(b,true,K13*wP[b]);
         K14wg[a] = sum(b,true,K14*wg[b]);
-        K15wP[a] = sum(b,true,K15*wP[b]);
-        K16wP[a] = sum(b,true,K16*wP[b]);
-        K17wp[a] = sum(b,true,K17*wp[b]);
         K18wp[a] = sum(b,true,K18*wp[b]);
 
         //explicit euler step
@@ -349,6 +355,9 @@ int main(int argc, char **argv) {
             map_type(get<density2p_weights>(knots).data(),n),
             map_type(get<density2p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
         
+        K15wP[a] = sum(b,true,K15*wP[b]);
+        K16wP[a] = sum(b,true,K16*wP[b]);
+        K17wp[a] = sum(b,true,K17*wp[b]);
         g[a] = fg;
         solve(create_eigen_operator(a,b,K14),
             map_type(get<g_function_weights>(knots).data(),n),
