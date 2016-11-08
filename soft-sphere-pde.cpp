@@ -44,7 +44,7 @@ void solve(Kernel &&kernel, VectorType &&result, VectorType &&source, size_t max
 
 int main(int argc, char **argv) {
 
-    unsigned int nout,max_iter_linear,restart_linear,nx,nr;
+    unsigned int nout,max_iter_linear,restart_linear,nx,nr,ngrid;
     double dt_aim,c0,factorr;
     unsigned int solver_in;
 
@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
         ("nout", po::value<unsigned int>(&nout)->default_value(10), "number of output points")
         ("c0", po::value<double>(&c0)->default_value(1.0), "kernel constant")
         ("nx", po::value<unsigned int>(&nx)->default_value(10), "nx")
+        ("ngrid", po::value<unsigned int>(&ngrid)->default_value(10), "ngrid")
         ("nr", po::value<unsigned int>(&nr)->default_value(10), "nr")
         ("factorr", po::value<double>(&factorr)->default_value(1.5), "factorr")
         ("dt", po::value<double>(&dt_aim)->default_value(0.0001), "timestep")
@@ -120,7 +121,7 @@ int main(int argc, char **argv) {
             K15wP_vector,K16wP_vector,K17wp_vector,K18wp_vector
             >,3> ParticlesType;
     typedef position_d<3> position;
-    ParticlesType knots;
+    ParticlesType knots,grid;
 
     const double L = 1.0;
     const double3 low(0,0,0);
@@ -138,10 +139,33 @@ int main(int argc, char **argv) {
     const double id_theta = 0.2;
     const double id_alpha = 30.0;
 
+    typename ParticlesType::value_type particle;
+    const double deltagrid = L/ngrid;
+    for (int i=0; i<=ngrid; ++i) {
+        for (int j=0; j<=ngrid; ++j) {
+            for (int k=0; k<=ngrid; ++k) {
+                get<position>(particle) = double3(i*deltagrid,j*deltagrid,k*deltagrid);
+                grid.push_back(particle);
+                get<constant>(particle) = c0;
+                get<density1p>(particle) = 0.5*(tanh(id_alpha*(get<position>(particle)[0]-id_theta))+tanh(id_alpha*(1-id_theta-get<position>(particle)[0])));
+                if ((k==ngrid/2)&&(j==ngrid/2)&&(i==ngrid/2)) {
+                    std::cout << "should only print this once" <<std::endl;
+                    get<density1p_weights>(particle) = 1.0;
+                    get<density2p_weights>(particle) = 1.0;
+                    get<g_function_weights>(particle) = 1.0;
+                } else {
+                    get<density1p_weights>(particle) = 0.0;
+                    get<density2p_weights>(particle) = 0.0;
+                    get<g_function_weights>(particle) = 0.0;
+                }
+                //knots.push_back(particle);
+            }
+        }
+    }
+    grid.init_neighbour_search(low,high,L/10,bool3(true,true,true));
     
     int n = nx*nr*nx;
     const double deltax = std::sqrt(2.0)/nx;
-    typename ParticlesType::value_type particle;
     for (int i=0; i<=nx; ++i) {
         const double x = i*deltax;
         double deltar = L*(1-factorr)/(1-std::pow(factorr,nr+1));
@@ -164,6 +188,17 @@ int main(int argc, char **argv) {
                 if ((get<position>(particle)<low).any() || (get<position>(particle)>=high).any()) continue;
                 get<constant>(particle) = c0;
                 get<density1p>(particle) = 0.5*(tanh(id_alpha*(get<position>(particle)[0]-id_theta))+tanh(id_alpha*(1-id_theta-get<position>(particle)[0])));
+                if ((k==0)&&(j==0)&&(i==nx/2)) {
+                    std::cout << "should only print this once" <<std::endl;
+                    get<density1p_weights>(particle) = 1.0;
+                    get<density2p_weights>(particle) = 1.0;
+                    get<g_function_weights>(particle) = 1.0;
+                } else {
+                    get<density1p_weights>(particle) = 0.0;
+                    get<density2p_weights>(particle) = 0.0;
+                    get<g_function_weights>(particle) = 0.0;
+                }
+
                 knots.push_back(particle);
             }
         }
@@ -229,8 +264,8 @@ int main(int argc, char **argv) {
                 )
             );
 
-    auto suberf1 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][1]))));
-    auto suberf2 = deep_copy(erfc(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][1]))));
+    auto suberf1 = deep_copy(1.0-erf(0.5*pow(c[b],-0.5)*(epsilon-2*c[b]*(r[a][0]-r[b][1]))));
+    auto suberf2 = deep_copy(1.0-erf(0.5*pow(c[b],-0.5)*(epsilon+2*c[b]*(r[a][0]-r[b][1]))));
     auto subexp1 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
     auto subexp2 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][0]-r[b][1]),2)/c[b]));
 
@@ -261,8 +296,10 @@ int main(int argc, char **argv) {
     auto subexp5 = deep_copy(exp(0.25*pow(epsilon-2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
     auto subexp6 = deep_copy(exp(0.25*pow(epsilon+2*c[b]*(r[a][1]-r[b][2]),2)/c[b]));
 
-    auto K7 = deep_copy(std::sqrt(PI)*epsilon*sqrt(c[b])*
-        (dx[0]*(suberf5*subexp5-suberf6*subexp6))*subbigexp2);
+    auto K7 = deep_copy(std::sqrt(PI)*epsilon*0.5*pow(c[b],-0.5)*(
+                (epsilon+2*c[b]*dx[1])*suberf5*subexp5
+                +(epsilon-2*c[b]*dx[1])*suberf6*subexp6)
+            *subbigexp2);
 
     auto K8 = deep_copy(2*c[b]*(r[b][0]-r[a][1])*exp(-c[b]*pow(r[b][0]-r[a][1],2)));
     auto K18 = deep_copy(-2*c[b]*(r[a][0]-r[b][0])*exp(-c[b]*pow(r[a][0]-r[b][0],2)));
@@ -297,11 +334,32 @@ int main(int argc, char **argv) {
     auto fg = deep_copy(K15wP[a]*K16wP[a]/K17wp[a]);
 
 
-    typedef Eigen::Matrix<double,Eigen::Dynamic,1> vector_type;
+    K1wP[a] = sum(b,true,K1*wP[b]);
+    K2wp[a] = sum(b,true,K2*wp[b]); 
+    K3wP[a] = sum(b,true,K3*wP[b]); 
+    K4wp[a] = sum(b,true,K4*wp[b]); 
+    K5wp[a] = sum(b,true,K5*wp[b]); 
+    K6wg[a] = sum(b,true,K6*wg[b]); 
+    K7wg[a] = sum(b,true,K7*wg[b]); 
+    K8wp[a] = sum(b,true,K8*wp[b]); 
+    K9wg[a] = sum(b,true,K9*wg[b]); 
+    K10wg[a] = sum(b,true,K10*wg[b]); 
+    K11wP[a] = sum(b,true,K11*wP[b]); 
+    K12wP[a] = sum(b,true,K12*wP[b]); 
+    K13wP[a] = sum(b,true,K13*wP[b]); 
+    K14wg[a] = sum(b,true,K14*wg[b]); 
+    K18wp[a] = sum(b,true,K18*wp[b]); 
+    K15wP[a] = sum(b,true,K15*wP[b]); 
+    K16wP[a] = sum(b,true,K16*wP[b]); 
+    K17wp[a] = sum(b,true,K17*wp[b]); 
+#ifdef HAVE_VTK 
+    vtkWriteGrid("knots_init",2,knots.get_grid(true)); 
+#endif 
+    std::cout << "wrote knots_init 2"<<std::endl;
+    typedef Eigen::Matrix<double,Eigen::Dynamic,1> vector_type; 
     typedef Eigen::Map<vector_type> map_type;
 
-    
-
+ 
     solve(create_eigen_operator(a,b,K4),
             map_type(get<density1p_weights>(knots).data(),n),
             map_type(get<density1p>(knots).data(),n),max_iter_linear,restart_linear,(linear_solver)solver_in);
@@ -331,6 +389,8 @@ int main(int argc, char **argv) {
     vector_type result(3*n);
     for (int i=0; i < timesteps; i++) {
         //evaluate temporaries
+        K1wP[a] = sum(b,true,K1*wP[b]);
+        K2wp[a] = sum(b,true,K2*wp[b]);
         K3wP[a] = sum(b,true,K3*wP[b]);
         K4wp[a] = sum(b,true,K4*wp[b]);
         K5wp[a] = sum(b,true,K5*wp[b]);

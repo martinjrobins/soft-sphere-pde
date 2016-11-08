@@ -1,5 +1,7 @@
 from __future__ import division
 from sympy import *
+from sympy.plotting import plot
+
 from sympy.functions import exp
 from sympy.core.containers import Tuple
 
@@ -29,6 +31,27 @@ fxiltyi = diff(exp((xi-yi)*e),xi)
 def printeq(name,eq):
     eq = simplify(eq)
     pprint(eq)
+    cj_set = 200.0
+    print 'plots:'
+    xeqj = eq.subs(cj,cj_set).subs(e,0.05).subs(xi,0.5).subs(yi,0.5).subs(zi,0.5).subs(yj,0.5).subs(zj,0.5)
+    yeqj = eq.subs(cj,cj_set).subs(e,0.05).subs(xi,0.5).subs(yi,0.5).subs(zi,0.5).subs(xj,0.5).subs(zj,0.5)
+    zeqj = eq.subs(cj,cj_set).subs(e,0.05).subs(xi,0.5).subs(yi,0.5).subs(zi,0.5).subs(xj,0.5).subs(yj,0.5)
+    xeqi = eq.subs(cj,cj_set).subs(e,0.05).subs(xj,0.5).subs(yj,0.5).subs(zj,0.5).subs(yi,0.5).subs(zi,0.5)
+    yeqi = eq.subs(cj,cj_set).subs(e,0.05).subs(xj,0.5).subs(yj,0.5).subs(zj,0.5).subs(xi,0.5).subs(zi,0.5)
+    zeqi = eq.subs(cj,cj_set).subs(e,0.05).subs(xj,0.5).subs(yj,0.5).subs(zj,0.5).subs(xi,0.5).subs(yi,0.5)
+    pprint(xeqj)
+    plot(xeqj,(xj,-1,2),xlabel=name+'x',adaptive=False,nb_of_points=500)
+    pprint(yeqj)
+    plot(yeqj,(yj,-1,2),xlabel=name+'y',adaptive=False,nb_of_points=500)
+    pprint(zeqj)
+    plot(zeqj,(zj,-1,2),xlabel=name+'z',adaptive=False,nb_of_points=500)
+    pprint(xeqi)
+    plot(xeqi,(xi,-1,2),xlabel=name+'x',adaptive=False,nb_of_points=500)
+    pprint(yeqi)
+    plot(yeqi,(yi,-1,2),xlabel=name+'y',adaptive=False,nb_of_points=500)
+    pprint(zeqi)
+    plot(zeqi,(zi,-1,2),xlabel=name+'z',adaptive=False,nb_of_points=500)
+
     with open('K_equations.tex','a') as fil:
         fil.write('------------------------------------------------\n')
         fil.write('   %s\n'%name)
@@ -87,7 +110,8 @@ printeq('K6',integrate(diff((fxigtyi.subs(yi,zi))*k,xi),(zi,-oo,xi))+integrate(d
 print '----------------------------------------------'
 print '               K7'
 print '----------------------------------------------'
-printeq('K7',integrate(diff((f.subs(yi,zi).subs(xi,yi))*k,xi),(zi,-oo,oo)))
+printeq('K7',integrate(diff((fxigtyi.subs(yi,zi).subs(xi,yi))*k,yi),(zi,-oo,yi))+integrate(diff((fxiltyi.subs(yi,zi).subs(xi,yi))*k,yi),(zi,yi,oo)))
+
 
 print '----------------------------------------------'
 print '               K8'
